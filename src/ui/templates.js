@@ -41,6 +41,14 @@ export function renderHelpOverlayContent() {
           It is designed to be hosted as a static site on GitHub Pages and live within the fetch-kit organization ecosystem:
           <a href="https://github.com/fetch-kit" target="_blank" rel="noreferrer noopener">https://github.com/fetch-kit</a>.
         </p>
+        <p>
+          The idea is simple: there are many HTTP clients in the JavaScript ecosystem — native <code>fetch</code>, <code>axios</code>, <code>ky</code>, <code>ffetch</code> — and while they all make HTTP requests, they handle failures, retries, and timeouts very differently.
+          Choosing one usually comes down to gut feeling or habit. This arena lets you see the actual differences under controlled stress, so the choice is based on evidence rather than assumption.
+        </p>
+        <p>
+          The chaos layer is powered by <a href="https://github.com/fetch-kit/chaos-fetch" target="_blank" rel="noreferrer noopener">chaos-fetch</a>, a lightweight middleware-style library that wraps fetch and injects latency, failures, and drops without touching your infrastructure.
+          If you find the arena useful, consider starring <a href="https://github.com/fetch-kit/ffetch" target="_blank" rel="noreferrer noopener">ffetch</a> and <a href="https://github.com/fetch-kit/chaos-fetch" target="_blank" rel="noreferrer noopener">chaos-fetch</a> on GitHub.
+        </p>
       </section>
 
       <section>
@@ -406,6 +414,7 @@ export function renderApp(state, lastRun) {
           <button id="what-is-this-btn" class="secondary">What is this?</button>
         </div>
         <p>Same chaos. Same workload. Compare native fetch, axios, ky, and ffetch with real controls.</p>
+        <p class="hero-built-with">Built with <a href="https://github.com/fetch-kit/ffetch" target="_blank" rel="noreferrer noopener">ffetch</a> (production-ready fetch wrapper) and <a href="https://github.com/fetch-kit/chaos-fetch" target="_blank" rel="noreferrer noopener">chaos-fetch</a> (chaos injection for fetch) — give them a ⭐ if you find this useful.</p>
       </section>
 
       <section class="layout">
