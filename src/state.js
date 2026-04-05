@@ -1,0 +1,99 @@
+export const defaultState = {
+  scenarioPreset: "api-instability",
+  targetUrl: "https://jsonplaceholder.typicode.com/posts/1",
+  requestCount: 60,
+  concurrency: 6,
+  payloadSizeBytes: 0,
+  runMode: "compare-all",
+  chaosGlobal: [
+    { type: "latencyRange", minMs: 30, maxMs: 250 },
+    { type: "failRandomly", rate: 0.2, status: 503, body: "Chaos random failure" },
+    { type: "rateLimit", limit: 20, windowMs: 1000, retryAfterMs: 0 }
+  ],
+  clients: {
+    fetch: {
+      enabled: true
+    },
+    ky: {
+      enabled: true,
+      timeoutMs: 3000,
+      retryLimit: 2,
+      retryMethods: ["get"],
+      retryStatusCodes: [408, 413, 429, 500, 502, 503, 504],
+      retryAfterStatusCodes: [413, 429, 503],
+      backoffMaxMs: 0,
+      throwHttpErrors: true,
+      backoffBaseMs: 0
+    },
+    ffetch: {
+      enabled: true,
+      timeoutMs: 3000,
+      retries: 2,
+      retryDelayMode: "fixed",
+      retryDelayMs: 0,
+      throwOnHttpError: false,
+      useDedupePlugin: false,
+      dedupeTtlMs: 30000,
+      dedupeSweepIntervalMs: 5000,
+      useCircuitPlugin: false,
+      circuitThreshold: 5,
+      circuitResetMs: 10000,
+      circuitOrder: 20,
+      dedupeOrder: 10
+    },
+    axios: {
+      enabled: true,
+      timeoutMs: 3000
+    }
+  }
+}
+
+export function createState() {
+  return structuredClone(defaultState)
+}
+
+export function applyPreset(state, preset) {
+  state.scenarioPreset = preset
+  if (preset === "light") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 20, maxMs: 100 },
+      { type: "failRandomly", rate: 0.05, status: 503, body: "Light turbulence" }
+    ]
+    state.requestCount = 40
+    state.concurrency = 5
+  }
+  if (preset === "api-instability") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 50, maxMs: 300 },
+      { type: "failRandomly", rate: 0.25, status: 503, body: "API unstable" }
+    ]
+    state.requestCount = 60
+    state.concurrency = 6
+  }
+  if (preset === "meltdown-recovery") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 80, maxMs: 500 },
+      { type: "failNth", n: 3, status: 500, body: "Every third request fails" },
+      { type: "failRandomly", rate: 0.15, status: 503, body: "Intermittent outage" }
+    ]
+    state.requestCount = 70
+    state.concurrency = 7
+  }
+  if (preset === "rate-limited") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 20, maxMs: 100 },
+      { type: "rateLimit", limit: 10, windowMs: 1000, retryAfterMs: 1000 }
+    ]
+    state.requestCount = 60
+    state.concurrency = 8
+  }
+  if (preset === "slow-network") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 200, maxMs: 800 },
+      { type: "throttle", rate: 512, chunkSize: 4096 },
+      { type: "failRandomly", rate: 0.05, status: 503, body: "Connection dropped" }
+    ]
+    state.requestCount = 40
+    state.concurrency = 4
+  }
+}
