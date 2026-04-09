@@ -61,6 +61,12 @@ export function createState() {
 
 export function applyPreset(state, preset) {
   state.scenarioPreset = preset
+  if (preset === "zero-config") {
+    state.chaosGlobal = []
+    state.requestCount = 40
+    state.concurrency = 6
+  }
+
   if (preset === "light") {
     state.chaosGlobal = [
       { type: "latencyRange", minMs: 20, maxMs: 100 },

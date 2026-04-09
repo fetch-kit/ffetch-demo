@@ -449,6 +449,7 @@ export function renderApp(state, lastRun) {
               <label>Preset</label>
               <div class="inline-controls">
                 <select id="preset">
+                  <option value="zero-config" ${state.scenarioPreset === "zero-config" ? "selected" : ""}>Zero-config baseline (no chaos)</option>
                   <option value="light" ${state.scenarioPreset === "light" ? "selected" : ""}>Light turbulence</option>
                   <option value="api-instability" ${state.scenarioPreset === "api-instability" ? "selected" : ""}>API instability</option>
                   <option value="meltdown-recovery" ${state.scenarioPreset === "meltdown-recovery" ? "selected" : ""}>Meltdown and recovery</option>
