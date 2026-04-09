@@ -292,13 +292,14 @@ function renderErrorChart(results) {
           const used = known.ok + known.deduped + known.TimeoutError + known.CircuitOpenError + known.HTTP_429 + known.HTTP_500 + known.HTTP_503
           const other = Math.max(0, total - used)
           const values = { ...known, other }
+          const successCount = known.ok + known.deduped
           const chunks = keys
             .map((key) => {
               const pct = Math.round((values[key] / total) * 100)
               return `<i class="chunk chunk-${key.toLowerCase()}" style="width:${pct}%;"></i>`
             })
             .join("")
-          return `<div class="mix-row"><span>${bucket.client}</span><div class="mix-track">${chunks}</div><b>${bucket.summary.success}/${total}</b></div>`
+          return `<div class="mix-row"><span>${bucket.client}</span><div class="mix-track">${chunks}</div><b>${successCount}/${total}</b></div>`
         })
         .join("")}
     </div>
@@ -333,18 +334,26 @@ function renderResults(lastRun) {
   `
 }
 
-function clientCardFetch(state) {
+function renderClientPanel(name, panelKey, expanded, body) {
   return `<article class="client-card">
-    <h3>Native fetch</h3>
+    <div class="client-head">
+      <h3>${name}</h3>
+      <button class="secondary tiny" type="button" data-action="toggle-client-panel" data-client="${panelKey}">${expanded ? "Hide" : "Show"}</button>
+    </div>
+    <div class="client-body ${expanded ? "" : "is-collapsed"}">${body}</div>
+  </article>`
+}
+
+function clientCardFetch(state) {
+  return renderClientPanel("Native fetch", "fetch", Boolean(state.clientPanels?.fetch), `
     <div class="field"><label><input id="fetch-enabled" type="checkbox" ${state.clients.fetch.enabled ? "checked" : ""} /> enabled</label></div>
     <p class="footer-note">No built-in timeout/retry controls.</p>
-  </article>`
+  `)
 }
 
 function clientCardKy(state) {
   const cfg = state.clients.ky
-  return `<article class="client-card">
-    <h3>ky</h3>
+  return renderClientPanel("ky", "ky", Boolean(state.clientPanels?.ky), `
     <div class="grid-two">
       <div class="field"><label><input id="ky-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} /> enabled</label></div>
       <div class="field"><label><input id="ky-throw" type="checkbox" ${cfg.throwHttpErrors ? "checked" : ""} /> throw http errors</label></div>
@@ -359,13 +368,12 @@ function clientCardKy(state) {
     </div>
     <div class="field"><label>retry status codes csv</label><input id="ky-status-codes" type="text" value="${numbersToCsv(cfg.retryStatusCodes)}" /></div>
     <div class="field"><label>retry-after status codes csv</label><input id="ky-after-codes" type="text" value="${numbersToCsv(cfg.retryAfterStatusCodes)}" /></div>
-  </article>`
+  `)
 }
 
 function clientCardFFetch(state) {
   const cfg = state.clients.ffetch
-  return `<article class="client-card">
-    <h3>ffetch</h3>
+  return renderClientPanel("ffetch", "ffetch", Boolean(state.clientPanels?.ffetch), `
     <div class="grid-two">
       <div class="field"><label><input id="ffetch-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} /> enabled</label></div>
       <div class="field"><label><input id="ffetch-throw" type="checkbox" ${cfg.throwOnHttpError ? "checked" : ""} /> throw http errors</label></div>
@@ -390,19 +398,18 @@ function clientCardFFetch(state) {
       <div class="field"><label>circuit threshold</label><input id="ffetch-circuit-threshold" type="number" min="1" value="${cfg.circuitThreshold}" /></div>
       <div class="field"><label>circuit reset ms</label><input id="ffetch-circuit-reset" type="number" min="1" value="${cfg.circuitResetMs}" /></div>
     </div>
-  </article>`
+  `)
 }
 
 function clientCardAxios(state) {
   const cfg = state.clients.axios
-  return `<article class="client-card">
-    <h3>axios</h3>
+  return renderClientPanel("axios", "axios", Boolean(state.clientPanels?.axios), `
     <div class="grid-two">
       <div class="field"><label><input id="axios-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} /> enabled</label></div>
       <div class="field"><label>timeout (ms)</label><input id="axios-timeout" type="number" min="0" value="${cfg.timeoutMs}" /></div>
     </div>
     <p class="footer-note">No built-in retry controls.</p>
-  </article>`
+  `)
 }
 
 export function renderApp(state, lastRun) {
@@ -447,6 +454,10 @@ export function renderApp(state, lastRun) {
                   <option value="meltdown-recovery" ${state.scenarioPreset === "meltdown-recovery" ? "selected" : ""}>Meltdown and recovery</option>
                   <option value="rate-limited" ${state.scenarioPreset === "rate-limited" ? "selected" : ""}>Rate limited API</option>
                   <option value="slow-network" ${state.scenarioPreset === "slow-network" ? "selected" : ""}>Slow network</option>
+                  <option value="burst-traffic" ${state.scenarioPreset === "burst-traffic" ? "selected" : ""}>Burst traffic</option>
+                  <option value="brownout" ${state.scenarioPreset === "brownout" ? "selected" : ""}>Service brownout</option>
+                  <option value="strict-rate-limit" ${state.scenarioPreset === "strict-rate-limit" ? "selected" : ""}>Strict rate limit</option>
+                  <option value="degraded-backend" ${state.scenarioPreset === "degraded-backend" ? "selected" : ""}>Degraded backend</option>
                 </select>
               </div>
               <button id="preset-btn" class="secondary" style="margin-top: 0.45rem; width: max-content;">Apply Preset</button>
@@ -454,9 +465,14 @@ export function renderApp(state, lastRun) {
           </section>
 
           <section class="panel">
-            <h2>Chaos Rules</h2>
-            <div class="actions" style="margin-bottom: 0.6rem;"><button class="secondary" data-action="add-global-rule">Add Rule</button></div>
-            ${renderGlobalRules(state)}
+            <div class="panel-head">
+              <h2 style="margin-bottom: 0;">Chaos Rules</h2>
+              <button id="toggle-chaos-btn" class="secondary tiny" type="button">${state.chaosRulesExpanded ? "Hide" : "Show"}</button>
+            </div>
+            <div class="chaos-body ${state.chaosRulesExpanded ? "" : "is-collapsed"}">
+              <div class="actions" style="margin-bottom: 0.6rem;"><button class="secondary" data-action="add-global-rule">Add Rule</button></div>
+              ${renderGlobalRules(state)}
+            </div>
           </section>
         </div>
 

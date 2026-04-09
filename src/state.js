@@ -1,5 +1,12 @@
 export const defaultState = {
   scenarioPreset: "api-instability",
+  chaosRulesExpanded: false,
+  clientPanels: {
+    fetch: false,
+    axios: false,
+    ky: false,
+    ffetch: false
+  },
   targetUrl: "https://jsonplaceholder.typicode.com/posts/1",
   requestCount: 60,
   concurrency: 6,
@@ -95,5 +102,44 @@ export function applyPreset(state, preset) {
     ]
     state.requestCount = 40
     state.concurrency = 4
+  }
+
+  if (preset === "burst-traffic") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 30, maxMs: 140 },
+      { type: "rateLimit", limit: 6, windowMs: 1000, retryAfterMs: 800 },
+      { type: "failNth", n: 8, status: 503, body: "Burst overload" }
+    ]
+    state.requestCount = 80
+    state.concurrency = 12
+  }
+
+  if (preset === "brownout") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 80, maxMs: 500 },
+      { type: "failRandomly", rate: 0.1, status: 503, body: "Service brownout" },
+      { type: "failNth", n: 6, status: 500, body: "Periodic backend errors" }
+    ]
+    state.requestCount = 70
+    state.concurrency = 7
+  }
+
+  if (preset === "strict-rate-limit") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 25, maxMs: 90 },
+      { type: "rateLimit", limit: 5, windowMs: 1000, retryAfterMs: 1500 }
+    ]
+    state.requestCount = 60
+    state.concurrency = 10
+  }
+
+  if (preset === "degraded-backend") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 150, maxMs: 700 },
+      { type: "failRandomly", rate: 0.12, status: 503, body: "Degraded backend" },
+      { type: "failNth", n: 5, status: 500, body: "Intermittent server failure" }
+    ]
+    state.requestCount = 65
+    state.concurrency = 6
   }
 }

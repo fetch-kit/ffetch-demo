@@ -102,6 +102,18 @@ body {
   color: var(--ink-0);
 }
 
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.chaos-body.is-collapsed {
+  display: none;
+}
+
 .grid-two {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -162,6 +174,21 @@ body {
 .client-card h3 {
   margin: 0 0 0.5rem;
   font-size: 0.95rem;
+}
+
+.client-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.client-head h3 {
+  margin: 0;
+}
+
+.client-body.is-collapsed {
+  display: none;
 }
 
 .badge {

@@ -85,6 +85,30 @@ function wireEvents() {
     helpOverlay.open()
   })
 
+  app.querySelector("#toggle-chaos-btn")?.addEventListener("click", () => {
+    readInputs(app, state)
+    state.chaosRulesExpanded = !state.chaosRulesExpanded
+    paint()
+  })
+
+  app.querySelectorAll('button[data-action="toggle-client-panel"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      readInputs(app, state)
+      const key = button.dataset.client
+      if (!key) return
+      if (!state.clientPanels) {
+        state.clientPanels = {
+          fetch: true,
+          axios: true,
+          ky: true,
+          ffetch: true
+        }
+      }
+      state.clientPanels[key] = !state.clientPanels[key]
+      paint()
+    })
+  })
+
   app.querySelector("#preset-btn")?.addEventListener("click", () => {
     readInputs(app, state)
     applyPreset(state, state.scenarioPreset)
