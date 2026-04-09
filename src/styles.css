@@ -183,6 +183,19 @@ body {
   gap: 0.6rem;
 }
 
+.client-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.client-enabled {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  color: var(--ink-1);
+}
+
 .client-head h3 {
   margin: 0;
 }

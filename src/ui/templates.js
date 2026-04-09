@@ -334,10 +334,13 @@ function renderResults(lastRun) {
   `
 }
 
-function renderClientPanel(name, panelKey, expanded, body) {
+function renderClientPanel(name, panelKey, expanded, enabledInput, body) {
   return `<article class="client-card">
     <div class="client-head">
-      <h3>${name}</h3>
+      <div class="client-title-row">
+        <label class="client-enabled">${enabledInput}</label>
+        <h3>${name}</h3>
+      </div>
       <button class="secondary tiny" type="button" data-action="toggle-client-panel" data-client="${panelKey}">${expanded ? "Hide" : "Show"}</button>
     </div>
     <div class="client-body ${expanded ? "" : "is-collapsed"}">${body}</div>
@@ -345,17 +348,26 @@ function renderClientPanel(name, panelKey, expanded, body) {
 }
 
 function clientCardFetch(state) {
-  return renderClientPanel("Native fetch", "fetch", Boolean(state.clientPanels?.fetch), `
-    <div class="field"><label><input id="fetch-enabled" type="checkbox" ${state.clients.fetch.enabled ? "checked" : ""} /> enabled</label></div>
+  return renderClientPanel(
+    "Native fetch",
+    "fetch",
+    Boolean(state.clientPanels?.fetch),
+    `<input id="fetch-enabled" type="checkbox" ${state.clients.fetch.enabled ? "checked" : ""} />`,
+    `
     <p class="footer-note">No built-in timeout/retry controls.</p>
-  `)
+  `
+  )
 }
 
 function clientCardKy(state) {
   const cfg = state.clients.ky
-  return renderClientPanel("ky", "ky", Boolean(state.clientPanels?.ky), `
+  return renderClientPanel(
+    "ky",
+    "ky",
+    Boolean(state.clientPanels?.ky),
+    `<input id="ky-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} />`,
+    `
     <div class="grid-two">
-      <div class="field"><label><input id="ky-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} /> enabled</label></div>
       <div class="field"><label><input id="ky-throw" type="checkbox" ${cfg.throwHttpErrors ? "checked" : ""} /> throw http errors</label></div>
     </div>
     <div class="grid-two">
@@ -368,14 +380,19 @@ function clientCardKy(state) {
     </div>
     <div class="field"><label>retry status codes csv</label><input id="ky-status-codes" type="text" value="${numbersToCsv(cfg.retryStatusCodes)}" /></div>
     <div class="field"><label>retry-after status codes csv</label><input id="ky-after-codes" type="text" value="${numbersToCsv(cfg.retryAfterStatusCodes)}" /></div>
-  `)
+  `
+  )
 }
 
 function clientCardFFetch(state) {
   const cfg = state.clients.ffetch
-  return renderClientPanel("ffetch", "ffetch", Boolean(state.clientPanels?.ffetch), `
+  return renderClientPanel(
+    "ffetch",
+    "ffetch",
+    Boolean(state.clientPanels?.ffetch),
+    `<input id="ffetch-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} />`,
+    `
     <div class="grid-two">
-      <div class="field"><label><input id="ffetch-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} /> enabled</label></div>
       <div class="field"><label><input id="ffetch-throw" type="checkbox" ${cfg.throwOnHttpError ? "checked" : ""} /> throw http errors</label></div>
     </div>
     <div class="grid-two">
@@ -398,18 +415,24 @@ function clientCardFFetch(state) {
       <div class="field"><label>circuit threshold</label><input id="ffetch-circuit-threshold" type="number" min="1" value="${cfg.circuitThreshold}" /></div>
       <div class="field"><label>circuit reset ms</label><input id="ffetch-circuit-reset" type="number" min="1" value="${cfg.circuitResetMs}" /></div>
     </div>
-  `)
+  `
+  )
 }
 
 function clientCardAxios(state) {
   const cfg = state.clients.axios
-  return renderClientPanel("axios", "axios", Boolean(state.clientPanels?.axios), `
+  return renderClientPanel(
+    "axios",
+    "axios",
+    Boolean(state.clientPanels?.axios),
+    `<input id="axios-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} />`,
+    `
     <div class="grid-two">
-      <div class="field"><label><input id="axios-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} /> enabled</label></div>
       <div class="field"><label>timeout (ms)</label><input id="axios-timeout" type="number" min="0" value="${cfg.timeoutMs}" /></div>
     </div>
     <p class="footer-note">No built-in retry controls.</p>
-  `)
+  `
+  )
 }
 
 export function renderApp(state, lastRun) {
