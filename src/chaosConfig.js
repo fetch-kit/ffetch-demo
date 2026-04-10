@@ -141,7 +141,7 @@ function createBrowserChaosClient(state, baseFetch, runtime) {
 
   const client = async (input, init) => {
     stats.totalTransportCalls += 1
-    const req = input instanceof Request ? input : new Request(input, init)
+    const req = input instanceof Request ? new Request(input, init) : new Request(input, init)
     const effects = { shortCircuit: null, throttle: null }
 
     const rules = [...(state.chaosGlobal || [])]

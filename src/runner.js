@@ -87,6 +87,13 @@ function diffTransportRuntimeStats(current, baseline) {
   }
 }
 
+function normalizeChaosTransportStats(stats) {
+  return {
+    totalTransportCalls: Math.max(0, Number(stats?.totalTransportCalls) || 0),
+    shortCircuitedCalls: Math.max(0, Number(stats?.shortCircuitedCalls) || 0)
+  }
+}
+
 function summarize(results) {
   const total = results.length
   const success = results.filter((r) => r.ok).length
@@ -289,6 +296,7 @@ export async function runExperiment(state, options = {}) {
   for (let index = 0; index < adapterFactories.length; index += 1) {
     const chaosRuntime = createChaosRuntime()
     const transport = await createChaosTransport(state, undefined, chaosRuntime)
+    const chaosBaselineStats = normalizeChaosTransportStats(transport.getRuntimeStats?.())
     const observedTransport = createObservedTransport(transport)
     const adapter = adapterFactories[index](observedTransport.transport)
     onProgress?.({
@@ -310,6 +318,18 @@ export async function runExperiment(state, options = {}) {
       }
       onProgress?.(event)
     }, observedTransport)
+
+    const chaosRuntimeDelta = diffTransportRuntimeStats(
+      transport.getRuntimeStats?.(),
+      chaosBaselineStats
+    )
+    const mergedRuntime = {
+      ...runtime,
+      totalTransportCalls: chaosRuntimeDelta.totalTransportCalls,
+      shortCircuitedCalls: chaosRuntimeDelta.shortCircuitedCalls,
+      upstreamFetchCalls: chaosRuntimeDelta.upstreamFetchCalls,
+      upstreamFetchPeakInFlight: chaosRuntimeDelta.upstreamFetchPeakInFlight
+    }
 
     if (adapter.name === "ffetch") {
       const byNetworkId = {}
@@ -339,7 +359,7 @@ export async function runExperiment(state, options = {}) {
     byClient.push({
       client: adapter.name,
       summary: summarize(rows),
-      runtime,
+      runtime: mergedRuntime,
       rows
     })
     onProgress?.({

@@ -64,4 +64,24 @@ describe("runExperiment", () => {
       expect(bucket.runtime.transportAttempts).toBe(5)
     }
   })
+
+  it("surfaces short-circuit and total transport runtime stats", async () => {
+    const state = createState()
+    state.targetUrl = "data:text/plain,ok"
+    state.requestCount = 4
+    state.concurrency = 2
+    state.chaosGlobal = [{ type: "failRandomly", rate: 1, status: 503, body: "boom" }]
+
+    state.clients.fetch.enabled = true
+    state.clients.axios.enabled = false
+    state.clients.ky.enabled = false
+    state.clients.ffetch.enabled = false
+
+    const result = await runExperiment(state)
+    const runtime = result.clients[0].runtime
+
+    expect(runtime.totalTransportCalls).toBe(4)
+    expect(runtime.shortCircuitedCalls).toBe(4)
+    expect(runtime.upstreamFetchCalls).toBe(0)
+  })
 })

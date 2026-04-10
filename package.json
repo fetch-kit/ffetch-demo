@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@fetchkit/chaos-fetch": "^0.8.0",
+    "@fetchkit/chaos-fetch": "^1.0.0",
     "@fetchkit/ffetch": "^5.0.1",
     "axios": "^1.14.0",
     "ky": "^1.7.5"

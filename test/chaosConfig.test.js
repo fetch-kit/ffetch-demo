@@ -80,4 +80,31 @@ describe("chaos runtime", () => {
     })
     expect(baseFetch).toHaveBeenCalledTimes(0)
   })
+
+  it("applies init overrides when input is a Request", async () => {
+    globalThis.window = {}
+
+    const baseFetch = vi.fn(async (req) => {
+      return new Response(req.method, {
+        status: 200,
+        headers: {
+          "x-demo-header": req.headers.get("x-demo-header") || ""
+        }
+      })
+    })
+
+    const transport = await createChaosTransport({ chaosGlobal: [] }, baseFetch, createChaosRuntime())
+    const input = new Request("https://example.test", { method: "GET" })
+    const response = await transport(input, {
+      method: "POST",
+      headers: { "x-demo-header": "override" }
+    })
+
+    expect(baseFetch).toHaveBeenCalledTimes(1)
+    const sentRequest = baseFetch.mock.calls[0][0]
+    expect(sentRequest).toBeInstanceOf(Request)
+    expect(sentRequest.method).toBe("POST")
+    expect(sentRequest.headers.get("x-demo-header")).toBe("override")
+    expect(await response.text()).toBe("POST")
+  })
 })
