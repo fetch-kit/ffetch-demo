@@ -9,11 +9,14 @@ describe("runExperiment", () => {
     state.requestCount = 5
     state.concurrency = 2
     state.chaosGlobal = []
-
-    state.clients.fetch.enabled = true
-    state.clients.axios.enabled = false
-    state.clients.ky.enabled = false
-    state.clients.ffetch.enabled = false
+    state.clientInstances = [
+      {
+        id: "fetch-1",
+        type: "fetch",
+        label: "fetch",
+        config: { enabled: true }
+      }
+    ]
 
     const result = await runExperiment(state)
 
@@ -30,11 +33,14 @@ describe("runExperiment", () => {
     state.requestCount = 8
     state.concurrency = 4
     state.chaosGlobal = []
-
-    state.clients.fetch.enabled = true
-    state.clients.axios.enabled = false
-    state.clients.ky.enabled = false
-    state.clients.ffetch.enabled = false
+    state.clientInstances = [
+      {
+        id: "fetch-1",
+        type: "fetch",
+        label: "fetch",
+        config: { enabled: true }
+      }
+    ]
 
     const result = await runExperiment(state)
     const runtime = result.clients[0].runtime
@@ -51,11 +57,20 @@ describe("runExperiment", () => {
     state.requestCount = 5
     state.concurrency = 2
     state.chaosGlobal = []
-
-    state.clients.fetch.enabled = true
-    state.clients.axios.enabled = true
-    state.clients.ky.enabled = false
-    state.clients.ffetch.enabled = false
+    state.clientInstances = [
+      {
+        id: "fetch-1",
+        type: "fetch",
+        label: "fetch",
+        config: { enabled: true }
+      },
+      {
+        id: "axios-1",
+        type: "axios",
+        label: "axios",
+        config: { enabled: true, timeoutMs: 3000 }
+      }
+    ]
 
     const result = await runExperiment(state)
     expect(result.clients).toHaveLength(2)
@@ -71,11 +86,14 @@ describe("runExperiment", () => {
     state.requestCount = 4
     state.concurrency = 2
     state.chaosGlobal = [{ type: "failRandomly", rate: 1, status: 503, body: "boom" }]
-
-    state.clients.fetch.enabled = true
-    state.clients.axios.enabled = false
-    state.clients.ky.enabled = false
-    state.clients.ffetch.enabled = false
+    state.clientInstances = [
+      {
+        id: "fetch-1",
+        type: "fetch",
+        label: "fetch",
+        config: { enabled: true }
+      }
+    ]
 
     const result = await runExperiment(state)
     const runtime = result.clients[0].runtime
@@ -91,11 +109,14 @@ describe("runExperiment", () => {
     state.requestCount = 10
     state.concurrency = 2
     state.chaosGlobal = []
-
-    state.clients.fetch.enabled = true
-    state.clients.axios.enabled = false
-    state.clients.ky.enabled = false
-    state.clients.ffetch.enabled = false
+    state.clientInstances = [
+      {
+        id: "fetch-1",
+        type: "fetch",
+        label: "fetch",
+        config: { enabled: true }
+      }
+    ]
 
     const result = await runExperiment(state)
     const summary = result.clients[0].summary

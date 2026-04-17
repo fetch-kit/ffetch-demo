@@ -1,3 +1,60 @@
+function randomId(prefix = "client") {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+export function createDefaultClientConfig(type) {
+  if (type === "fetch") return { enabled: true }
+  if (type === "axios") {
+    return {
+      enabled: true,
+      timeoutMs: 3000
+    }
+  }
+  if (type === "ky") {
+    return {
+      enabled: true,
+      timeoutMs: 3000,
+      retryLimit: 2,
+      retryMethods: ["get"],
+      retryStatusCodes: [408, 413, 429, 500, 502, 503, 504],
+      retryAfterStatusCodes: [413, 429, 503],
+      backoffMaxMs: 0,
+      throwHttpErrors: true,
+      backoffBaseMs: 0
+    }
+  }
+
+  return {
+    enabled: true,
+    timeoutMs: 3000,
+    retries: 2,
+    retryDelayMode: "fixed",
+    retryDelayMs: 0,
+    throwOnHttpError: false,
+    useDedupePlugin: false,
+    dedupeTtlMs: 30000,
+    dedupeSweepIntervalMs: 5000,
+    useCircuitPlugin: false,
+    circuitThreshold: 5,
+    circuitResetMs: 10000,
+    circuitOrder: 20,
+    dedupeOrder: 10,
+    useHedgePlugin: false,
+    hedgeDelayMs: 50,
+    hedgeMaxHedges: 1,
+    hedgeOrder: 15
+  }
+}
+
+export function createClientInstance(type = "fetch") {
+  return {
+    id: randomId(type),
+    type,
+    label: type,
+    config: createDefaultClientConfig(type)
+  }
+}
+
 export const defaultState = {
   scenarioPreset: "api-instability",
   chaosRulesExpanded: false,
@@ -56,7 +113,13 @@ export const defaultState = {
       enabled: true,
       timeoutMs: 3000
     }
-  }
+  },
+  clientInstances: [
+    createClientInstance("fetch"),
+    createClientInstance("axios"),
+    createClientInstance("ky"),
+    createClientInstance("ffetch")
+  ]
 }
 
 export function createState() {

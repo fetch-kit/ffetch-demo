@@ -194,7 +194,7 @@ async function runForAdapter(adapter, state, plans, onProgress, networkObserved)
       const retries = Math.max(0, attempts - 1)
       const elapsedMs = performance.now() - started
       const row = {
-        client: adapter.name,
+        client: adapter.displayName || adapter.name,
         requestId: plan.id,
         ok: response.ok,
         status: response.status,
@@ -209,7 +209,7 @@ async function runForAdapter(adapter, state, plans, onProgress, networkObserved)
       clientCompleted += 1
       onProgress?.({
         type: "request-complete",
-        client: adapter.name,
+        client: adapter.displayName || adapter.name,
         clientCompleted,
         clientTotal: plans.length,
         requestId: plan.id,
@@ -223,7 +223,7 @@ async function runForAdapter(adapter, state, plans, onProgress, networkObserved)
       const attempts = Number(err.__arenaAttempts || 1)
       const retries = Math.max(0, attempts - 1)
       const row = {
-        client: adapter.name,
+        client: adapter.displayName || adapter.name,
         requestId: plan.id,
         ok: false,
         status: 0,
@@ -238,7 +238,7 @@ async function runForAdapter(adapter, state, plans, onProgress, networkObserved)
       clientCompleted += 1
       onProgress?.({
         type: "request-complete",
-        client: adapter.name,
+        client: adapter.displayName || adapter.name,
         clientCompleted,
         clientTotal: plans.length,
         requestId: plan.id,
@@ -270,46 +270,68 @@ async function runForAdapter(adapter, state, plans, onProgress, networkObserved)
   }
 }
 
+function getEnabledClientInstances(state) {
+  if (Array.isArray(state.clientInstances) && state.clientInstances.length > 0) {
+    return state.clientInstances.filter((instance) => instance?.config?.enabled !== false)
+  }
+
+  const list = []
+  if (state.clients?.fetch?.enabled) list.push({ type: "fetch", label: "fetch", config: state.clients.fetch })
+  if (state.clients?.axios?.enabled) list.push({ type: "axios", label: "axios", config: state.clients.axios })
+  if (state.clients?.ky?.enabled) list.push({ type: "ky", label: "ky", config: state.clients.ky })
+  if (state.clients?.ffetch?.enabled) list.push({ type: "ffetch", label: "ffetch", config: state.clients.ffetch })
+  return list
+}
+
+function createAdapterForInstance(instance, transport) {
+  const type = instance.type
+  const label = instance.label || type
+  const localState = { clients: { [type]: instance.config } }
+
+  let adapter
+  if (type === "fetch") adapter = createFetchAdapter(transport)
+  else if (type === "axios") adapter = createAxiosAdapter(localState, transport)
+  else if (type === "ky") adapter = createKyAdapter(localState, transport)
+  else adapter = createFFetchAdapter(localState, transport)
+
+  return {
+    ...adapter,
+    kind: type,
+    displayName: label
+  }
+}
+
 export async function runExperiment(state, options = {}) {
   const onProgress = options.onProgress
   const startedAt = new Date().toISOString()
   const plans = buildRequestPlan(state)
 
-  const adapterFactories = []
-  if (state.clients.fetch.enabled) adapterFactories.push((wrappedTransport) => createFetchAdapter(wrappedTransport))
-  if (state.clients.axios.enabled) adapterFactories.push((wrappedTransport) => createAxiosAdapter(state, wrappedTransport))
-  if (state.clients.ky.enabled) adapterFactories.push((wrappedTransport) => createKyAdapter(state, wrappedTransport))
-  if (state.clients.ffetch.enabled) adapterFactories.push((wrappedTransport) => createFFetchAdapter(state, wrappedTransport))
-
-  const totalRequests = plans.length * adapterFactories.length
+  const enabledInstances = getEnabledClientInstances(state)
+  const totalRequests = plans.length * enabledInstances.length
   let totalCompleted = 0
 
-  const clientNames = []
-  if (state.clients.fetch.enabled) clientNames.push("fetch")
-  if (state.clients.axios.enabled) clientNames.push("axios")
-  if (state.clients.ky.enabled) clientNames.push("ky")
-  if (state.clients.ffetch.enabled) clientNames.push("ffetch")
+  const clientNames = enabledInstances.map((instance) => instance.label || instance.type)
 
   onProgress?.({
     type: "run-start",
     clients: clientNames,
-    totalClients: adapterFactories.length,
+    totalClients: enabledInstances.length,
     requestsPerClient: plans.length,
     totalRequests
   })
 
   const byClient = []
-  for (let index = 0; index < adapterFactories.length; index += 1) {
+  for (let index = 0; index < enabledInstances.length; index += 1) {
     const chaosRuntime = createChaosRuntime()
     const transport = await createChaosTransport(state, undefined, chaosRuntime)
     const chaosBaselineStats = normalizeChaosTransportStats(transport.getRuntimeStats?.())
     const observedTransport = createObservedTransport(transport)
-    const adapter = adapterFactories[index](observedTransport.transport)
+    const adapter = createAdapterForInstance(enabledInstances[index], observedTransport.transport)
     onProgress?.({
       type: "client-start",
-      client: adapter.name,
+      client: adapter.displayName,
       clientIndex: index + 1,
-      totalClients: adapterFactories.length,
+      totalClients: enabledInstances.length,
       requestsPerClient: plans.length
     })
     const { rows, runtime } = await runForAdapter(adapter, state, plans, (event) => {
@@ -337,7 +359,7 @@ export async function runExperiment(state, options = {}) {
       upstreamFetchPeakInFlight: chaosRuntimeDelta.upstreamFetchPeakInFlight
     }
 
-    if (adapter.name === "ffetch") {
+    if (adapter.kind === "ffetch") {
       const byNetworkId = {}
       for (const row of rows) {
         if (!row.networkId) continue
@@ -363,16 +385,16 @@ export async function runExperiment(state, options = {}) {
     }
 
     byClient.push({
-      client: adapter.name,
+      client: adapter.displayName,
       summary: summarize(rows),
       runtime: mergedRuntime,
       rows
     })
     onProgress?.({
       type: "client-end",
-      client: adapter.name,
+      client: adapter.displayName,
       clientIndex: index + 1,
-      totalClients: adapterFactories.length
+      totalClients: enabledInstances.length
     })
   }
 

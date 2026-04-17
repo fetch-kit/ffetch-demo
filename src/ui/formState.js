@@ -27,6 +27,43 @@ function parseRuleNode(node) {
   return rule
 }
 
+function parseClientFieldValue(input) {
+  if (!input) return undefined
+  if (input.type === "checkbox") return input.checked
+  if (input.type === "number") return Number(input.value)
+  return input.value
+}
+
+function parseClientInstances(app, state) {
+  const cards = [...app.querySelectorAll("[data-client-instance-id]")]
+  state.clientInstances = cards.map((card) => {
+    const id = card.getAttribute("data-client-instance-id")
+    const type = card.querySelector("h3")?.textContent?.trim() || "fetch"
+    const current = (state.clientInstances || []).find((instance) => instance.id === id)
+    const config = { ...(current?.config || {}) }
+    let label = current?.label || type
+
+    for (const input of card.querySelectorAll("[data-field]")) {
+      const key = input.getAttribute("data-field")
+      const value = parseClientFieldValue(input)
+      if (key === "label") {
+        label = String(value || type)
+      } else if (key === "retryStatusCodes" || key === "retryAfterStatusCodes") {
+        config[key] = csvToNumbers(String(value || ""))
+      } else {
+        config[key] = value
+      }
+    }
+
+    return {
+      id,
+      type,
+      label,
+      config
+    }
+  })
+}
+
 export function readInputs(app, state) {
   state.scenarioPreset = app.querySelector("#preset").value
   state.targetUrl = app.querySelector("#target-url").value.trim()
@@ -34,34 +71,5 @@ export function readInputs(app, state) {
   state.concurrency = Number(app.querySelector("#concurrency").value)
 
   state.chaosGlobal = [...app.querySelectorAll(".global-rule")].map(parseRuleNode)
-
-  state.clients.fetch.enabled = app.querySelector("#fetch-enabled").checked
-
-  state.clients.ky.enabled = app.querySelector("#ky-enabled").checked
-  state.clients.ky.throwHttpErrors = app.querySelector("#ky-throw").checked
-  state.clients.ky.timeoutMs = Number(app.querySelector("#ky-timeout").value)
-  state.clients.ky.retryLimit = Number(app.querySelector("#ky-retry").value)
-  state.clients.ky.backoffBaseMs = Number(app.querySelector("#ky-backoff-base").value)
-  state.clients.ky.backoffMaxMs = Number(app.querySelector("#ky-backoff-max").value)
-  state.clients.ky.retryStatusCodes = csvToNumbers(app.querySelector("#ky-status-codes").value)
-  state.clients.ky.retryAfterStatusCodes = csvToNumbers(app.querySelector("#ky-after-codes").value)
-
-  state.clients.ffetch.enabled = app.querySelector("#ffetch-enabled").checked
-  state.clients.ffetch.throwOnHttpError = app.querySelector("#ffetch-throw").checked
-  state.clients.ffetch.timeoutMs = Number(app.querySelector("#ffetch-timeout").value)
-  state.clients.ffetch.retries = Number(app.querySelector("#ffetch-retries").value)
-  state.clients.ffetch.retryDelayMode = app.querySelector("#ffetch-delay-mode").value
-  state.clients.ffetch.retryDelayMs = Number(app.querySelector("#ffetch-delay-ms").value)
-  state.clients.ffetch.useDedupePlugin = app.querySelector("#ffetch-dedupe").checked
-  state.clients.ffetch.useCircuitPlugin = app.querySelector("#ffetch-circuit").checked
-  state.clients.ffetch.useHedgePlugin = app.querySelector("#ffetch-hedge").checked
-  state.clients.ffetch.dedupeTtlMs = Number(app.querySelector("#ffetch-dedupe-ttl")?.value ?? state.clients.ffetch.dedupeTtlMs)
-  state.clients.ffetch.dedupeSweepIntervalMs = Number(app.querySelector("#ffetch-dedupe-sweep")?.value ?? state.clients.ffetch.dedupeSweepIntervalMs)
-  state.clients.ffetch.circuitThreshold = Number(app.querySelector("#ffetch-circuit-threshold")?.value ?? state.clients.ffetch.circuitThreshold)
-  state.clients.ffetch.circuitResetMs = Number(app.querySelector("#ffetch-circuit-reset")?.value ?? state.clients.ffetch.circuitResetMs)
-  state.clients.ffetch.hedgeDelayMs = Number(app.querySelector("#ffetch-hedge-delay")?.value ?? state.clients.ffetch.hedgeDelayMs)
-  state.clients.ffetch.hedgeMaxHedges = Number(app.querySelector("#ffetch-hedge-max")?.value ?? state.clients.ffetch.hedgeMaxHedges)
-
-  state.clients.axios.enabled = app.querySelector("#axios-enabled").checked
-  state.clients.axios.timeoutMs = Number(app.querySelector("#axios-timeout").value)
+  parseClientInstances(app, state)
 }

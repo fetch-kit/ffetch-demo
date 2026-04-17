@@ -358,122 +358,121 @@ function renderResults(lastRun) {
   `
 }
 
-function renderClientPanel(name, panelKey, expanded, enabledInput, body) {
-  return `<article class="client-card">
+function inputField(instanceId, key, label, value, type = "number", extra = "") {
+  return `<div class="field"><label>${label}</label><input data-client-id="${instanceId}" data-field="${key}" type="${type}" value="${value}" ${extra} /></div>`
+}
+
+function checkboxField(instanceId, key, label, checked, extra = "") {
+  return `<div class="field"><label><input data-client-id="${instanceId}" data-field="${key}" type="checkbox" ${checked ? "checked" : ""} ${extra} /> ${label}</label></div>`
+}
+
+function selectField(instanceId, key, label, options, selected) {
+  return `<div class="field"><label>${label}</label><select data-client-id="${instanceId}" data-field="${key}">${options
+    .map((option) => `<option value="${option}" ${option === selected ? "selected" : ""}>${option}</option>`)
+    .join("")}</select></div>`
+}
+
+function renderClientInstanceCard(instance) {
+  const cfg = instance.config || {}
+  const id = instance.id
+  const type = instance.type
+
+  let body = `
+    ${inputField(id, "label", "label", instance.label || type, "text")}
+  `
+
+  if (type === "fetch") {
+    body += `<p class="footer-note">No built-in timeout/retry controls.</p>`
+  }
+
+  if (type === "axios") {
+    body += `<div class="grid-two">${inputField(id, "timeoutMs", "timeout (ms)", cfg.timeoutMs ?? 3000, "number", 'min="0"')}</div>`
+  }
+
+  if (type === "ky") {
+    body += `
+      <div class="grid-two">${checkboxField(id, "throwHttpErrors", "throw http errors", Boolean(cfg.throwHttpErrors))}</div>
+      <div class="grid-two">
+        ${inputField(id, "timeoutMs", "timeout (ms)", cfg.timeoutMs ?? 3000, "number", 'min="0"')}
+        ${inputField(id, "retryLimit", "retry limit", cfg.retryLimit ?? 2, "number", 'min="0" max="10"')}
+      </div>
+      <div class="grid-two">
+        ${inputField(id, "backoffBaseMs", "backoff base (ms)", cfg.backoffBaseMs ?? 0, "number", 'min="0"')}
+        ${inputField(id, "backoffMaxMs", "backoff max (ms)", cfg.backoffMaxMs ?? 0, "number", 'min="0"')}
+      </div>
+      ${inputField(id, "retryStatusCodes", "retry status codes csv", numbersToCsv(cfg.retryStatusCodes || []), "text")}
+      ${inputField(id, "retryAfterStatusCodes", "retry-after status codes csv", numbersToCsv(cfg.retryAfterStatusCodes || []), "text")}
+    `
+  }
+
+  if (type === "ffetch") {
+    body += `
+      <div class="grid-two">${checkboxField(id, "throwOnHttpError", "throw http errors", Boolean(cfg.throwOnHttpError))}</div>
+      <div class="grid-two">
+        ${inputField(id, "timeoutMs", "timeout (ms)", cfg.timeoutMs ?? 3000, "number", 'min="0"')}
+        ${inputField(id, "retries", "retries", cfg.retries ?? 2, "number", 'min="0" max="10"')}
+      </div>
+      <div class="grid-two">
+        ${selectField(id, "retryDelayMode", "retry mode", ["expo-jitter", "fixed"], cfg.retryDelayMode || "fixed")}
+        ${inputField(id, "retryDelayMs", "retry delay ms", cfg.retryDelayMs ?? 0, "number", 'min="0"')}
+      </div>
+      <div class="plugin-block">
+        ${checkboxField(id, "useDedupePlugin", "dedupe plugin", Boolean(cfg.useDedupePlugin), 'data-plugin-toggle="true"')}
+        ${cfg.useDedupePlugin
+          ? `<div class="grid-two">
+              ${inputField(id, "dedupeTtlMs", "dedupe ttl ms", cfg.dedupeTtlMs ?? 30000, "number", 'min="0"')}
+              ${inputField(id, "dedupeSweepIntervalMs", "dedupe sweep ms", cfg.dedupeSweepIntervalMs ?? 5000, "number", 'min="100"')}
+            </div>`
+          : ""}
+      </div>
+      <div class="plugin-block">
+        ${checkboxField(id, "useCircuitPlugin", "circuit plugin", Boolean(cfg.useCircuitPlugin), 'data-plugin-toggle="true"')}
+        ${cfg.useCircuitPlugin
+          ? `<div class="grid-two">
+              ${inputField(id, "circuitThreshold", "circuit threshold", cfg.circuitThreshold ?? 5, "number", 'min="1"')}
+              ${inputField(id, "circuitResetMs", "circuit reset ms", cfg.circuitResetMs ?? 10000, "number", 'min="1"')}
+            </div>`
+          : ""}
+      </div>
+      <div class="plugin-block">
+        ${checkboxField(id, "useHedgePlugin", "hedge plugin", Boolean(cfg.useHedgePlugin), 'data-plugin-toggle="true"')}
+        ${cfg.useHedgePlugin
+          ? `<div class="grid-two">
+              ${inputField(id, "hedgeDelayMs", "hedge delay ms", cfg.hedgeDelayMs ?? 50, "number", 'min="1"')}
+              ${inputField(id, "hedgeMaxHedges", "max hedges (tries)", cfg.hedgeMaxHedges ?? 1, "number", 'min="0" max="10"')}
+            </div>`
+          : ""}
+      </div>
+    `
+  }
+
+  return `<article class="client-card" data-client-instance-id="${id}">
     <div class="client-head">
       <div class="client-title-row">
-        <label class="client-enabled">${enabledInput}</label>
-        <h3>${name}</h3>
+        <button
+          class="drag-handle"
+          type="button"
+          data-drag-handle="true"
+          draggable="true"
+          aria-label="Drag to reorder client"
+          title="Drag to reorder"
+        >
+          ≡
+        </button>
+        <h3>${type}</h3>
       </div>
-      <button class="secondary tiny" type="button" data-action="toggle-client-panel" data-client="${panelKey}">${expanded ? "Hide" : "Show"}</button>
+      <button class="secondary tiny" type="button" data-action="remove-client" data-client-id="${id}">Remove</button>
     </div>
-    <div class="client-body ${expanded ? "" : "is-collapsed"}">${body}</div>
+    <div class="client-body">${body}</div>
   </article>`
 }
 
-function clientCardFetch(state) {
-  return renderClientPanel(
-    "Native fetch",
-    "fetch",
-    Boolean(state.clientPanels?.fetch),
-    `<input id="fetch-enabled" type="checkbox" ${state.clients.fetch.enabled ? "checked" : ""} />`,
-    `
-    <p class="footer-note">No built-in timeout/retry controls.</p>
-  `
-  )
-}
-
-function clientCardKy(state) {
-  const cfg = state.clients.ky
-  return renderClientPanel(
-    "ky",
-    "ky",
-    Boolean(state.clientPanels?.ky),
-    `<input id="ky-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} />`,
-    `
-    <div class="grid-two">
-      <div class="field"><label><input id="ky-throw" type="checkbox" ${cfg.throwHttpErrors ? "checked" : ""} /> throw http errors</label></div>
-    </div>
-    <div class="grid-two">
-      <div class="field"><label>timeout (ms)</label><input id="ky-timeout" type="number" min="0" value="${cfg.timeoutMs}" /></div>
-      <div class="field"><label>retry limit</label><input id="ky-retry" type="number" min="0" max="10" value="${cfg.retryLimit}" /></div>
-    </div>
-    <div class="grid-two">
-      <div class="field"><label>backoff base (ms)</label><input id="ky-backoff-base" type="number" min="1" value="${cfg.backoffBaseMs}" /></div>
-      <div class="field"><label>backoff max (ms)</label><input id="ky-backoff-max" type="number" min="1" value="${cfg.backoffMaxMs}" /></div>
-    </div>
-    <div class="field"><label>retry status codes csv</label><input id="ky-status-codes" type="text" value="${numbersToCsv(cfg.retryStatusCodes)}" /></div>
-    <div class="field"><label>retry-after status codes csv</label><input id="ky-after-codes" type="text" value="${numbersToCsv(cfg.retryAfterStatusCodes)}" /></div>
-  `
-  )
-}
-
-function clientCardFFetch(state) {
-  const cfg = state.clients.ffetch
-  return renderClientPanel(
-    "ffetch",
-    "ffetch",
-    Boolean(state.clientPanels?.ffetch),
-    `<input id="ffetch-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} />`,
-    `
-    <div class="grid-two">
-      <div class="field"><label><input id="ffetch-throw" type="checkbox" ${cfg.throwOnHttpError ? "checked" : ""} /> throw http errors</label></div>
-    </div>
-    <div class="grid-two">
-      <div class="field"><label>timeout (ms)</label><input id="ffetch-timeout" type="number" min="0" value="${cfg.timeoutMs}" /></div>
-      <div class="field"><label>retries</label><input id="ffetch-retries" type="number" min="0" max="10" value="${cfg.retries}" /></div>
-    </div>
-    <div class="grid-two">
-      <div class="field"><label>retry mode</label><select id="ffetch-delay-mode"><option value="expo-jitter" ${cfg.retryDelayMode === "expo-jitter" ? "selected" : ""}>expo-jitter</option><option value="fixed" ${cfg.retryDelayMode === "fixed" ? "selected" : ""}>fixed</option></select></div>
-      <div class="field"><label>retry delay ms</label><input id="ffetch-delay-ms" type="number" min="1" value="${cfg.retryDelayMs}" /></div>
-    </div>
-    <div class="plugin-block">
-      <div class="field"><label><input id="ffetch-dedupe" type="checkbox" ${cfg.useDedupePlugin ? "checked" : ""} /> dedupe plugin</label></div>
-      ${cfg.useDedupePlugin
-        ? `<div class="grid-two">
-            <div class="field"><label>dedupe ttl ms</label><input id="ffetch-dedupe-ttl" type="number" min="0" value="${cfg.dedupeTtlMs}" /></div>
-            <div class="field"><label>dedupe sweep ms</label><input id="ffetch-dedupe-sweep" type="number" min="100" value="${cfg.dedupeSweepIntervalMs}" /></div>
-          </div>`
-        : ""}
-    </div>
-
-    <div class="plugin-block">
-      <div class="field"><label><input id="ffetch-circuit" type="checkbox" ${cfg.useCircuitPlugin ? "checked" : ""} /> circuit plugin</label></div>
-      ${cfg.useCircuitPlugin
-        ? `<div class="grid-two">
-            <div class="field"><label>circuit threshold</label><input id="ffetch-circuit-threshold" type="number" min="1" value="${cfg.circuitThreshold}" /></div>
-            <div class="field"><label>circuit reset ms</label><input id="ffetch-circuit-reset" type="number" min="1" value="${cfg.circuitResetMs}" /></div>
-          </div>`
-        : ""}
-    </div>
-
-    <div class="plugin-block">
-      <div class="field"><label><input id="ffetch-hedge" type="checkbox" ${cfg.useHedgePlugin ? "checked" : ""} /> hedge plugin</label></div>
-      ${cfg.useHedgePlugin
-        ? `<div class="grid-two">
-            <div class="field"><label>hedge delay ms</label><input id="ffetch-hedge-delay" type="number" min="1" value="${cfg.hedgeDelayMs}" /></div>
-            <div class="field"><label>max hedges (tries)</label><input id="ffetch-hedge-max" type="number" min="0" max="10" value="${cfg.hedgeMaxHedges}" /></div>
-          </div>`
-        : ""}
-    </div>
-  `
-  )
-}
-
-function clientCardAxios(state) {
-  const cfg = state.clients.axios
-  return renderClientPanel(
-    "axios",
-    "axios",
-    Boolean(state.clientPanels?.axios),
-    `<input id="axios-enabled" type="checkbox" ${cfg.enabled ? "checked" : ""} />`,
-    `
-    <div class="grid-two">
-      <div class="field"><label>timeout (ms)</label><input id="axios-timeout" type="number" min="0" value="${cfg.timeoutMs}" /></div>
-    </div>
-    <p class="footer-note">No built-in retry controls.</p>
-  `
-  )
+function renderClientInstances(state) {
+  const instances = state.clientInstances || []
+  if (!instances.length) {
+    return `<p class="footer-note">No clients configured. Add one to start.</p>`
+  }
+  return instances.map((instance) => renderClientInstanceCard(instance)).join("")
 }
 
 export function renderApp(state, lastRun) {
@@ -542,7 +541,19 @@ export function renderApp(state, lastRun) {
         </div>
 
         <div class="mid-col">
-          <section class="panel"><h2>Clients</h2><div class="client-cards">${clientCardFetch(state)}${clientCardAxios(state)}${clientCardKy(state)}${clientCardFFetch(state)}</div></section>
+          <section class="panel">
+            <h2>Clients</h2>
+            <div class="client-actions">
+              <select id="client-type-select">
+                <option value="fetch">fetch</option>
+                <option value="axios">axios</option>
+                <option value="ky">ky</option>
+                <option value="ffetch">ffetch</option>
+              </select>
+              <button type="button" class="secondary" data-action="add-client">Add Client</button>
+            </div>
+            <div class="client-cards">${renderClientInstances(state)}</div>
+          </section>
         </div>
 
         <div class="right-col">${renderResults(lastRun)}</div>

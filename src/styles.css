@@ -180,6 +180,13 @@ body {
   gap: 0.75rem;
 }
 
+.client-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
 .client-card {
   border: 1px solid rgba(188, 214, 245, 0.25);
   border-radius: 12px;
@@ -203,6 +210,37 @@ body {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+}
+
+.drag-handle {
+  border: 1px solid rgba(188, 214, 245, 0.25);
+  border-radius: 8px;
+  background: rgba(11, 18, 31, 0.72);
+  color: var(--ink-1);
+  width: 1.7rem;
+  height: 1.55rem;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  padding: 0;
+  line-height: 1;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.client-card.is-dragging {
+  opacity: 0.45;
+}
+
+.client-card.is-drop-target.drop-before {
+  border-top: 2px solid var(--accent-a);
+}
+
+.client-card.is-drop-target.drop-after {
+  border-bottom: 2px solid var(--accent-a);
 }
 
 .client-enabled {

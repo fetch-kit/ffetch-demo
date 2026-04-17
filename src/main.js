@@ -1,5 +1,5 @@
 import "./styles.css"
-import { createState, applyPreset } from "./state"
+import { createState, applyPreset, createClientInstance } from "./state"
 import { runExperiment } from "./runner"
 import { readInputs } from "./ui/formState"
 import { createHelpOverlay } from "./ui/helpOverlay"
@@ -80,6 +80,120 @@ function setRuleType(index, type) {
   state.chaosGlobal[index] = newRule(type)
 }
 
+function moveClientInstance(instances, sourceId, targetId, placeBefore = true) {
+  const list = [...instances]
+  const fromIndex = list.findIndex((instance) => instance.id === sourceId)
+  if (fromIndex < 0) return list
+
+  const [moved] = list.splice(fromIndex, 1)
+
+  if (!targetId) {
+    list.push(moved)
+    return list
+  }
+
+  const targetIndex = list.findIndex((instance) => instance.id === targetId)
+  if (targetIndex < 0) {
+    list.push(moved)
+    return list
+  }
+
+  const insertAt = placeBefore ? targetIndex : targetIndex + 1
+  list.splice(insertAt, 0, moved)
+  return list
+}
+
+function wireClientDragAndDrop() {
+  const container = app.querySelector(".client-cards")
+  const cards = [...app.querySelectorAll(".client-card[data-client-instance-id]")]
+  const handles = [...app.querySelectorAll("[data-drag-handle='true']")]
+  let dragSourceId = null
+
+  function clearDropState() {
+    cards.forEach((card) => {
+      card.classList.remove("is-drop-target", "drop-before", "drop-after", "is-dragging")
+    })
+  }
+
+  handles.forEach((handle) => {
+    handle.addEventListener("dragstart", (event) => {
+      const card = event.currentTarget.closest(".client-card[data-client-instance-id]")
+      if (!card) {
+        event.preventDefault()
+        return
+      }
+
+      dragSourceId = card.getAttribute("data-client-instance-id")
+      card.classList.add("is-dragging")
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move"
+        event.dataTransfer.setData("text/plain", dragSourceId)
+      }
+    })
+
+    handle.addEventListener("dragend", () => {
+      dragSourceId = null
+      clearDropState()
+    })
+  })
+
+  cards.forEach((card) => {
+    card.addEventListener("dragover", (event) => {
+      if (!dragSourceId) return
+      const targetId = card.getAttribute("data-client-instance-id")
+      if (!targetId || targetId === dragSourceId) return
+
+      event.preventDefault()
+      const rect = card.getBoundingClientRect()
+      const placeBefore = event.clientY < rect.top + rect.height / 2
+
+      card.classList.add("is-drop-target")
+      card.classList.toggle("drop-before", placeBefore)
+      card.classList.toggle("drop-after", !placeBefore)
+    })
+
+    card.addEventListener("dragleave", (event) => {
+      if (!card.contains(event.relatedTarget)) {
+        card.classList.remove("is-drop-target", "drop-before", "drop-after")
+      }
+    })
+
+    card.addEventListener("drop", (event) => {
+      if (!dragSourceId) return
+      event.preventDefault()
+
+      const targetId = card.getAttribute("data-client-instance-id")
+      if (!targetId || targetId === dragSourceId) {
+        clearDropState()
+        dragSourceId = null
+        return
+      }
+
+      const placeBefore = card.classList.contains("drop-before")
+      readInputs(app, state)
+      state.clientInstances = moveClientInstance(state.clientInstances || [], dragSourceId, targetId, placeBefore)
+      dragSourceId = null
+      paint()
+    })
+  })
+
+  container?.addEventListener("dragover", (event) => {
+    if (!dragSourceId) return
+    event.preventDefault()
+  })
+
+  container?.addEventListener("drop", (event) => {
+    if (!dragSourceId) return
+    if (event.target.closest(".client-card[data-client-instance-id]")) return
+
+    event.preventDefault()
+    readInputs(app, state)
+    state.clientInstances = moveClientInstance(state.clientInstances || [], dragSourceId)
+    dragSourceId = null
+    paint()
+  })
+}
+
 function wireEvents() {
   app.querySelector("#what-is-this-btn")?.addEventListener("click", () => {
     helpOverlay.open()
@@ -89,24 +203,6 @@ function wireEvents() {
     readInputs(app, state)
     state.chaosRulesExpanded = !state.chaosRulesExpanded
     paint()
-  })
-
-  app.querySelectorAll('button[data-action="toggle-client-panel"]').forEach((button) => {
-    button.addEventListener("click", () => {
-      readInputs(app, state)
-      const key = button.dataset.client
-      if (!key) return
-      if (!state.clientPanels) {
-        state.clientPanels = {
-          fetch: true,
-          axios: true,
-          ky: true,
-          ffetch: true
-        }
-      }
-      state.clientPanels[key] = !state.clientPanels[key]
-      paint()
-    })
   })
 
   app.querySelector("#preset-btn")?.addEventListener("click", () => {
@@ -155,20 +251,30 @@ function wireEvents() {
       readInputs(app, state)
       const action = event.currentTarget.dataset.action
       const index = Number(event.currentTarget.dataset.index)
+      const clientId = event.currentTarget.dataset.clientId
 
       if (action === "add-global-rule") state.chaosGlobal.push(newRule("latencyRange"))
       if (action === "remove-global-rule") state.chaosGlobal.splice(index, 1)
+      if (action === "add-client") {
+        const type = app.querySelector("#client-type-select")?.value || "fetch"
+        state.clientInstances.push(createClientInstance(type))
+      }
+      if (action === "remove-client" && clientId) {
+        state.clientInstances = state.clientInstances.filter((instance) => instance.id !== clientId)
+      }
 
       paint()
     })
   })
 
-  app.querySelectorAll("#ffetch-dedupe, #ffetch-circuit, #ffetch-hedge").forEach((toggle) => {
+  app.querySelectorAll("[data-plugin-toggle='true']").forEach((toggle) => {
     toggle.addEventListener("change", () => {
       readInputs(app, state)
       paint()
     })
   })
+
+  wireClientDragAndDrop()
 }
 
 paint()
