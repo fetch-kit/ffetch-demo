@@ -117,15 +117,80 @@ export function createKyAdapter(state, transport) {
   }
 }
 
-function createRetryDelay(mode, fixedMs) {
-  if (mode === "fixed") return fixedMs
+function parseStatusCodes(items, fallback = []) {
+  const source = Array.isArray(items) ? items : fallback
+  return source
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value >= 100 && value <= 599)
+}
+
+function shouldSkipRetryForError(error) {
+  const name = String(error?.name || "")
+  return name === "AbortError" || name === "CircuitOpenError" || name === "TimeoutError"
+}
+
+function parseRetryAfterMs(headerValue) {
+  if (!headerValue) return null
+  const seconds = Number.parseInt(headerValue, 10)
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000)
+  const timestamp = Date.parse(headerValue)
+  if (Number.isFinite(timestamp)) return Math.max(0, timestamp - Date.now())
+  return null
+}
+
+function createRetryDelay(mode, baseDelayMs, jitterMs, retryAfterStatusCodes) {
+  const safeBaseDelayMs = Math.max(0, Number(baseDelayMs) || 0)
+  const safeJitterMs = Math.max(0, Number(jitterMs) || 0)
+  const retryAfterStatusSet = new Set(parseStatusCodes(retryAfterStatusCodes, [413, 429, 503]))
+
+  if (mode === "fixed") return safeBaseDelayMs
+
   return ({ attempt, response }) => {
-    const retryAfter = response?.headers?.get?.("Retry-After")
-    if (retryAfter) {
-      const seconds = Number(retryAfter)
-      if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000
+    const status = Number(response?.status || 0)
+    if (response && retryAfterStatusSet.has(status)) {
+      const retryAfterHeader = response?.headers?.get?.("Retry-After")
+      const retryAfterMs = parseRetryAfterMs(retryAfterHeader)
+      if (retryAfterMs != null) return retryAfterMs
     }
-    return 2 ** attempt * fixedMs + Math.random() * 100
+
+    const exp = Math.max(0, Number(attempt) || 0)
+    const jitter = safeJitterMs > 0 ? Math.random() * safeJitterMs : 0
+    return 2 ** exp * safeBaseDelayMs + jitter
+  }
+}
+
+function createShouldRetry(retryStatusCodes) {
+  const statusSet = new Set(parseStatusCodes(retryStatusCodes, [429, 500, 502, 503, 504]))
+
+  return ({ error, response }) => {
+    if (error && shouldSkipRetryForError(error)) return false
+    if (!response) return true
+    return statusSet.has(Number(response.status || 0))
+  }
+}
+
+function normalizeFFetchConfig(config = {}) {
+  return {
+    timeoutMs: Math.max(0, Number(config.timeoutMs) || 0),
+    retries: Math.max(0, Number(config.retries) || 0),
+    retryDelayMode: config.retryDelayMode === "expo-jitter" ? "expo-jitter" : "fixed",
+    retryDelayMs: Math.max(0, Number(config.retryDelayMs) || 0),
+    retryJitterMs: Math.max(0, Number(config.retryJitterMs) || 0),
+    retryStatusCodes: parseStatusCodes(config.retryStatusCodes, [429, 500, 502, 503, 504]),
+    retryAfterStatusCodes: parseStatusCodes(config.retryAfterStatusCodes, [413, 429, 503]),
+    throwOnHttpError: Boolean(config.throwOnHttpError),
+    useDedupePlugin: Boolean(config.useDedupePlugin),
+    dedupeTtlMs: Math.max(0, Number(config.dedupeTtlMs) || 0),
+    dedupeSweepIntervalMs: Math.max(0, Number(config.dedupeSweepIntervalMs) || 0),
+    useCircuitPlugin: Boolean(config.useCircuitPlugin),
+    circuitThreshold: Math.max(1, Number(config.circuitThreshold) || 1),
+    circuitResetMs: Math.max(1, Number(config.circuitResetMs) || 1),
+    circuitOrder: Number(config.circuitOrder) || 20,
+    dedupeOrder: Number(config.dedupeOrder) || 10,
+    useHedgePlugin: Boolean(config.useHedgePlugin),
+    hedgeDelayMs: Math.max(1, Number(config.hedgeDelayMs) || 1),
+    hedgeMaxHedges: Math.max(0, Number(config.hedgeMaxHedges) || 0),
+    hedgeOrder: Number(config.hedgeOrder) || 15
   }
 }
 
@@ -234,7 +299,7 @@ function toWebResponseFromAxios(axiosResponse, traceId) {
 }
 
 export function createFFetchAdapter(state, transport) {
-  const cfg = state.clients.ffetch
+  const cfg = normalizeFFetchConfig(state.clients.ffetch)
   const tracker = createAttemptTrackerTransport(transport)
   const plugins = []
 
@@ -272,7 +337,8 @@ export function createFFetchAdapter(state, transport) {
     fetchHandler: tracker.transport,
     timeout: cfg.timeoutMs,
     retries: cfg.retries,
-    retryDelay: createRetryDelay(cfg.retryDelayMode, cfg.retryDelayMs),
+    retryDelay: createRetryDelay(cfg.retryDelayMode, cfg.retryDelayMs, cfg.retryJitterMs, cfg.retryAfterStatusCodes),
+    shouldRetry: createShouldRetry(cfg.retryStatusCodes),
     throwOnHttpError: cfg.throwOnHttpError,
     plugins
   })

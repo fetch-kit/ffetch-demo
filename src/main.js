@@ -299,6 +299,13 @@ function wireEvents() {
     })
   })
 
+  app.querySelectorAll("select[data-field='retryDelayMode']").forEach((toggle) => {
+    toggle.addEventListener("change", () => {
+      readInputs(app, state)
+      paint()
+    })
+  })
+
   wireClientDragAndDrop()
 
   app.addEventListener("input", () => {

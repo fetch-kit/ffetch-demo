@@ -116,4 +116,88 @@ describe("adapter contract", () => {
     expect(result.response.status).toBe(200)
     expect(result.attempts).toBeGreaterThanOrEqual(1)
   })
+
+  it("ffetch retries only configured retry status codes", async () => {
+    let calls = 0
+    const state = {
+      clients: {
+        ffetch: {
+          timeoutMs: 1000,
+          retries: 1,
+          retryDelayMode: "fixed",
+          retryDelayMs: 0,
+          retryJitterMs: 0,
+          retryStatusCodes: [503],
+          retryAfterStatusCodes: [429, 503],
+          throwOnHttpError: false,
+          useDedupePlugin: false,
+          useCircuitPlugin: false,
+          useHedgePlugin: false,
+          dedupeTtlMs: 30000,
+          dedupeSweepIntervalMs: 5000,
+          circuitThreshold: 5,
+          circuitResetMs: 10000,
+          circuitOrder: 20,
+          dedupeOrder: 10,
+          hedgeDelayMs: 50,
+          hedgeMaxHedges: 1,
+          hedgeOrder: 15
+        }
+      }
+    }
+
+    const adapter = createFFetchAdapter(state, async () => {
+      calls += 1
+      if (calls === 1) return new Response("fail", { status: 503 })
+      return new Response("ok", { status: 200 })
+    })
+
+    const result = await adapter.request("https://example.test", { method: "GET" }, { traceId: "trace-6" })
+
+    expect(result.response.status).toBe(200)
+    expect(calls).toBe(2)
+    expect(result.attempts).toBe(2)
+  })
+
+  it("ffetch does not retry statuses outside retryStatusCodes", async () => {
+    let calls = 0
+    const state = {
+      clients: {
+        ffetch: {
+          timeoutMs: 1000,
+          retries: 1,
+          retryDelayMode: "fixed",
+          retryDelayMs: 0,
+          retryJitterMs: 0,
+          retryStatusCodes: [503],
+          retryAfterStatusCodes: [429, 503],
+          throwOnHttpError: false,
+          useDedupePlugin: false,
+          useCircuitPlugin: false,
+          useHedgePlugin: false,
+          dedupeTtlMs: 30000,
+          dedupeSweepIntervalMs: 5000,
+          circuitThreshold: 5,
+          circuitResetMs: 10000,
+          circuitOrder: 20,
+          dedupeOrder: 10,
+          hedgeDelayMs: 50,
+          hedgeMaxHedges: 1,
+          hedgeOrder: 15
+        }
+      }
+    }
+
+    const adapter = createFFetchAdapter(state, async () => {
+      calls += 1
+      if (calls === 1) return new Response("rate-limited", { status: 429 })
+      return new Response("ok", { status: 200 })
+    })
+
+    const result = await adapter.request("https://example.test", { method: "GET" }, { traceId: "trace-7" })
+
+    expect(result.response.status).toBe(429)
+    expect(calls).toBe(1)
+    expect(result.attempts).toBe(1)
+  })
 })

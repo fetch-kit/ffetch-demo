@@ -384,8 +384,8 @@ function checkboxField(instanceId, key, label, checked, extra = "") {
   return `<div class="field"><label><input data-client-id="${instanceId}" data-field="${key}" type="checkbox" ${checked ? "checked" : ""} ${extra} /> ${label}</label></div>`
 }
 
-function selectField(instanceId, key, label, options, selected) {
-  return `<div class="field"><label>${label}</label><select data-client-id="${instanceId}" data-field="${key}">${options
+function selectField(instanceId, key, label, options, selected, extra = "") {
+  return `<div class="field"><label>${label}</label><select data-client-id="${instanceId}" data-field="${key}" ${extra}>${options
     .map((option) => `<option value="${option}" ${option === selected ? "selected" : ""}>${option}</option>`)
     .join("")}</select></div>`
 }
@@ -424,6 +424,7 @@ function renderClientInstanceCard(instance) {
   }
 
   if (type === "ffetch") {
+    const retryMode = cfg.retryDelayMode || "fixed"
     body += `
       <div class="grid-two">${checkboxField(id, "throwOnHttpError", "throw http errors", Boolean(cfg.throwOnHttpError))}</div>
       <div class="grid-two">
@@ -431,9 +432,12 @@ function renderClientInstanceCard(instance) {
         ${inputField(id, "retries", "retries", cfg.retries ?? 2, "number", 'min="0" max="10"')}
       </div>
       <div class="grid-two">
-        ${selectField(id, "retryDelayMode", "retry mode", ["expo-jitter", "fixed"], cfg.retryDelayMode || "fixed")}
-        ${inputField(id, "retryDelayMs", "retry delay ms", cfg.retryDelayMs ?? 0, "number", 'min="0"')}
+        ${selectField(id, "retryDelayMode", "retry mode", ["expo-jitter", "fixed"], retryMode, 'data-retry-mode-toggle="true"')}
+        ${inputField(id, "retryDelayMs", retryMode === "expo-jitter" ? "retry base delay ms" : "retry delay ms", cfg.retryDelayMs ?? 200, "number", 'min="0"')}
       </div>
+      ${retryMode === "expo-jitter" ? `<div class="grid-two">${inputField(id, "retryJitterMs", "retry jitter ms", cfg.retryJitterMs ?? 100, "number", 'min="0"')}</div>` : ""}
+      ${inputField(id, "retryStatusCodes", "retry status codes csv", numbersToCsv(cfg.retryStatusCodes || [429, 500, 502, 503, 504]), "text")}
+      ${inputField(id, "retryAfterStatusCodes", "retry-after status codes csv", numbersToCsv(cfg.retryAfterStatusCodes || [413, 429, 503]), "text")}
       <div class="plugin-block">
         ${checkboxField(id, "useDedupePlugin", "dedupe plugin", Boolean(cfg.useDedupePlugin), 'data-plugin-toggle="true"')}
         ${cfg.useDedupePlugin
