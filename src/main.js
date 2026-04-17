@@ -16,64 +16,6 @@ const progressOverlay = createProgressOverlay(document)
 
 let lastRun = null
 
-function clone(value) {
-  return structuredClone(value)
-}
-
-function ensureRuntimeMetrics(run, requestedConcurrency) {
-  if (!run || !Array.isArray(run.clients)) return run
-
-  const safeRequested = Math.max(1, Number(requestedConcurrency) || 1)
-  run.clients = run.clients.map((bucket) => {
-    const runtime = bucket.runtime || {}
-    const transportPeak = Math.max(0, Number(runtime.transportPeakInFlight ?? runtime.networkPeakInFlight) || 0)
-    const transportAvg = Number((runtime.transportAvgInFlight ?? runtime.networkAvgInFlight) || 0)
-    const transportAttempts = Math.max(0, Number(runtime.transportAttempts ?? runtime.networkAttempts) || 0)
-    const upstreamFetchPeak = Math.max(0, Number(runtime.upstreamFetchPeakInFlight) || 0)
-    const upstreamFetchCalls = Math.max(0, Number(runtime.upstreamFetchCalls) || 0)
-    const shortCircuitedCalls = Math.max(0, Number(runtime.shortCircuitedCalls) || 0)
-    return {
-      ...bucket,
-      runtime: {
-        requestedConcurrency: Math.max(1, Number(runtime.requestedConcurrency) || safeRequested),
-        logicalPeakInFlight: Math.max(0, Number(runtime.logicalPeakInFlight) || 0),
-        logicalAvgInFlight: Number(runtime.logicalAvgInFlight || 0),
-        transportPeakInFlight: transportPeak,
-        transportAvgInFlight: transportAvg,
-        transportAttempts,
-        transportPeakVsRequestedPct: Number(runtime.transportPeakVsRequestedPct || ((transportPeak / safeRequested) * 100).toFixed(1)),
-        upstreamFetchPeakInFlight: upstreamFetchPeak,
-        upstreamFetchCalls,
-        shortCircuitedCalls,
-        upstreamFetchPeakVsRequestedPct: Number(runtime.upstreamFetchPeakVsRequestedPct || ((upstreamFetchPeak / safeRequested) * 100).toFixed(1))
-      }
-    }
-  })
-
-  return run
-}
-
-function exportSnapshot() {
-  if (!lastRun) return
-  const run = ensureRuntimeMetrics(clone(lastRun), state.concurrency)
-  const snapshot = {
-    createdAt: new Date().toISOString(),
-    schemaVersion: 2,
-    includes: {
-      runtimeConcurrency: true
-    },
-    state: clone(state),
-    run
-  }
-  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement("a")
-  anchor.href = url
-  anchor.download = `arena-snapshot-${Date.now()}.json`
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
 function syncUrl() {
   const url = encodeStateToUrl(state)
   history.replaceState(null, "", url)
@@ -218,10 +160,6 @@ function wireEvents() {
     readInputs(app, state)
     applyPreset(state, state.scenarioPreset)
     paint()
-  })
-
-  app.querySelector("#export-btn")?.addEventListener("click", () => {
-    exportSnapshot()
   })
 
   app.querySelector("#download-card-btn")?.addEventListener("click", () => {

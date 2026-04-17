@@ -28,7 +28,6 @@ The app wraps requests with chaos rules (latency, random failures, rate limiting
 - **Client configuration**: independent timeout, retry, and plugin settings per client
   - **ffetch plugins**: dedupe (collapse in-flight requests), circuit (fail-fast protection), hedge (race backup requests for tail-latency reduction)
 - **Run comparison**: side-by-side reliability score, error distribution, and latency metrics
-- **Exportable results**: download full run snapshots as JSON (schema v2)
 
 ## What's Measured
 

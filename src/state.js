@@ -221,4 +221,23 @@ export function applyPreset(state, preset) {
     state.requestCount = 65
     state.concurrency = 6
   }
+
+  if (preset === "high-latency-timeout") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 2000, maxMs: 5000 },
+      { type: "failRandomly", rate: 0.08, status: 503, body: "Slow service" }
+    ]
+    state.requestCount = 40
+    state.concurrency = 3
+  }
+
+  if (preset === "rate-limit-429") {
+    state.chaosGlobal = [
+      { type: "latencyRange", minMs: 20, maxMs: 80 },
+      { type: "rateLimit", limit: 8, windowMs: 1000, retryAfterMs: 1200 },
+      { type: "failRandomly", rate: 0.15, status: 429, body: "Rate limit exceeded" }
+    ]
+    state.requestCount = 60
+    state.concurrency = 10
+  }
 }

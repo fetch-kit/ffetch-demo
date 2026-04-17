@@ -81,11 +81,10 @@ export function renderHelpOverlayContent() {
       </section>
 
       <section>
-        <h3>Sharing and exports</h3>
+        <h3>Sharing and downloads</h3>
         <ul class="help-list">
           <li><b>Copy Share URL</b>: Captures the current scenario, chaos rules, and client configurations into a shareable URL hash. Opening that link restores the same setup.</li>
           <li><b>Download Card</b>: Exports a deterministic SVG card from the latest completed run. This export is data-frozen and does not rerun requests.</li>
-          <li><b>Legend behavior</b>: The exported card legend is intelligent and only includes outcome types that appear in that run.</li>
         </ul>
       </section>
 
@@ -515,7 +514,6 @@ export function renderApp(state, lastRun) {
             <h2>Actions</h2>
             <div class="actions">
               <button id="run-btn">Run Arena</button>
-              <button id="export-btn" class="secondary" ${lastRun ? "" : "disabled"}>Export Snapshot</button>
               <button id="copy-link-btn" class="secondary">Copy Share URL</button>
             </div>
             <p class="footer-note">${lastRun ? `Last run: ${lastRun.startedAt}` : "No run yet"}</p>
@@ -545,6 +543,8 @@ export function renderApp(state, lastRun) {
                   <option value="brownout" ${state.scenarioPreset === "brownout" ? "selected" : ""}>Service brownout</option>
                   <option value="strict-rate-limit" ${state.scenarioPreset === "strict-rate-limit" ? "selected" : ""}>Strict rate limit</option>
                   <option value="degraded-backend" ${state.scenarioPreset === "degraded-backend" ? "selected" : ""}>Degraded backend</option>
+                  <option value="high-latency-timeout" ${state.scenarioPreset === "high-latency-timeout" ? "selected" : ""}>High latency + timeout</option>
+                  <option value="rate-limit-429" ${state.scenarioPreset === "rate-limit-429" ? "selected" : ""}>Rate limit (429 errors)</option>
                 </select>
               </div>
               <button id="preset-btn" class="secondary" style="margin-top: 0.45rem; width: max-content;">Apply Preset</button>
