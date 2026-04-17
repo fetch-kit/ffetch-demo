@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@fetchkit/chaos-fetch": "^1.0.0",
-    "@fetchkit/ffetch": "^5.0.1",
+    "@fetchkit/ffetch": "^5.3.0",
     "axios": "^1.14.0",
     "ky": "^1.7.5"
   },

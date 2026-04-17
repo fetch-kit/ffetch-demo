@@ -162,6 +162,13 @@ function wireEvents() {
       paint()
     })
   })
+
+  app.querySelectorAll("#ffetch-dedupe, #ffetch-circuit, #ffetch-hedge").forEach((toggle) => {
+    toggle.addEventListener("change", () => {
+      readInputs(app, state)
+      paint()
+    })
+  })
 }
 
 paint()

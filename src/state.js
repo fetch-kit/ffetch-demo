@@ -46,7 +46,11 @@ export const defaultState = {
       circuitThreshold: 5,
       circuitResetMs: 10000,
       circuitOrder: 20,
-      dedupeOrder: 10
+      dedupeOrder: 10,
+      useHedgePlugin: false,
+      hedgeDelayMs: 50,
+      hedgeMaxHedges: 1,
+      hedgeOrder: 15
     },
     axios: {
       enabled: true,

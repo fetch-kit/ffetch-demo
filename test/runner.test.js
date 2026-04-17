@@ -84,4 +84,27 @@ describe("runExperiment", () => {
     expect(runtime.shortCircuitedCalls).toBe(4)
     expect(runtime.upstreamFetchCalls).toBe(0)
   })
+
+  it("computes standardized metrics: p99, latencyN, errorRate", async () => {
+    const state = createState()
+    state.targetUrl = "data:text/plain,ok"
+    state.requestCount = 10
+    state.concurrency = 2
+    state.chaosGlobal = []
+
+    state.clients.fetch.enabled = true
+    state.clients.axios.enabled = false
+    state.clients.ky.enabled = false
+    state.clients.ffetch.enabled = false
+
+    const result = await runExperiment(state)
+    const summary = result.clients[0].summary
+
+    expect(summary).toHaveProperty("p99")
+    expect(summary).toHaveProperty("latencyN")
+    expect(summary).toHaveProperty("errorRate")
+    expect(typeof summary.p99).toBe("number")
+    expect(summary.latencyN).toBe(10)
+    expect(summary.errorRate).toBe(0)
+  })
 })

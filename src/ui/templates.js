@@ -99,6 +99,25 @@ export function renderHelpOverlayContent() {
       </section>
 
       <section>
+        <h3>ffetch plugins</h3>
+        <ul class="help-list">
+          <li><b>dedupe</b>: Collapses simultaneous requests for the same URL into a single outbound call, serving the response to all pending callers. Controlled by TTL and sweep interval.</li>
+          <li><b>circuit</b>: Stops making requests when consecutive failures exceed a threshold, returning errors immediately until a reset window expires. Protects against cascading failures.</li>
+          <li><b>hedge</b>: Races backup requests against the primary after a configurable delay. You can set both delay and max hedges (tries). Returns the first successful response, canceling losers. Reduces tail latency under rare slow-response scenarios.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Metrics explained</h3>
+        <ul class="help-list">
+          <li><b>p50, p95, p99 latency</b>: 50th, 95th, and 99th percentile response times (ms). Track median, high-percentile, and tail latency separately.</li>
+          <li><b>latency samples</b>: Count of latency measurements included in percentile calculations. Higher = more statistically stable.</li>
+          <li><b>error rate</b>: Percentage of requests that did not succeed (non-2xx, timeouts, thrown errors). Complements success count with a rate view.</li>
+          <li><b>requests/sec</b>: Throughput (total requests divided by elapsed time).</li>
+        </ul>
+      </section>
+
+      <section>
         <h3>How reliability score is calculated</h3>
         <p>
           The score is in the <code>0..100</code> range and favors successful responses while penalizing timeouts,
@@ -227,11 +246,16 @@ function renderSummaryCards(summary, runtime) {
     <div class="metrics">
       <article class="metric"><b>${summary.total}</b><span>requests</span></article>
       <article class="metric"><b>${summary.success}</b><span>success</span></article>
-      <article class="metric"><b>${summary.reliabilityScore}</b><span>reliability score (see What is this?)</span></article>
+      <article class="metric"><b>${summary.reliabilityScore}</b><span>reliability score</span></article>
     </div>
     <div class="metrics" style="margin-top: 0.6rem;">
       <article class="metric"><b>${summary.p50} ms</b><span>p50 latency</span></article>
       <article class="metric"><b>${summary.p95} ms</b><span>p95 latency</span></article>
+      <article class="metric"><b>${summary.p99} ms</b><span>p99 latency</span></article>
+    </div>
+    <div class="metrics" style="margin-top: 0.6rem;">
+      <article class="metric"><b>${summary.latencyN}</b><span>latency samples</span></article>
+      <article class="metric"><b>${summary.errorRate}%</b><span>error rate</span></article>
       <article class="metric"><b>${summary.throughputRps}</b><span>requests/sec</span></article>
     </div>
   `
@@ -403,17 +427,34 @@ function clientCardFFetch(state) {
       <div class="field"><label>retry mode</label><select id="ffetch-delay-mode"><option value="expo-jitter" ${cfg.retryDelayMode === "expo-jitter" ? "selected" : ""}>expo-jitter</option><option value="fixed" ${cfg.retryDelayMode === "fixed" ? "selected" : ""}>fixed</option></select></div>
       <div class="field"><label>retry delay ms</label><input id="ffetch-delay-ms" type="number" min="1" value="${cfg.retryDelayMs}" /></div>
     </div>
-    <div class="grid-two">
+    <div class="plugin-block">
       <div class="field"><label><input id="ffetch-dedupe" type="checkbox" ${cfg.useDedupePlugin ? "checked" : ""} /> dedupe plugin</label></div>
+      ${cfg.useDedupePlugin
+        ? `<div class="grid-two">
+            <div class="field"><label>dedupe ttl ms</label><input id="ffetch-dedupe-ttl" type="number" min="0" value="${cfg.dedupeTtlMs}" /></div>
+            <div class="field"><label>dedupe sweep ms</label><input id="ffetch-dedupe-sweep" type="number" min="100" value="${cfg.dedupeSweepIntervalMs}" /></div>
+          </div>`
+        : ""}
+    </div>
+
+    <div class="plugin-block">
       <div class="field"><label><input id="ffetch-circuit" type="checkbox" ${cfg.useCircuitPlugin ? "checked" : ""} /> circuit plugin</label></div>
+      ${cfg.useCircuitPlugin
+        ? `<div class="grid-two">
+            <div class="field"><label>circuit threshold</label><input id="ffetch-circuit-threshold" type="number" min="1" value="${cfg.circuitThreshold}" /></div>
+            <div class="field"><label>circuit reset ms</label><input id="ffetch-circuit-reset" type="number" min="1" value="${cfg.circuitResetMs}" /></div>
+          </div>`
+        : ""}
     </div>
-    <div class="grid-two">
-      <div class="field"><label>dedupe ttl ms</label><input id="ffetch-dedupe-ttl" type="number" min="0" value="${cfg.dedupeTtlMs}" /></div>
-      <div class="field"><label>dedupe sweep ms</label><input id="ffetch-dedupe-sweep" type="number" min="100" value="${cfg.dedupeSweepIntervalMs}" /></div>
-    </div>
-    <div class="grid-two">
-      <div class="field"><label>circuit threshold</label><input id="ffetch-circuit-threshold" type="number" min="1" value="${cfg.circuitThreshold}" /></div>
-      <div class="field"><label>circuit reset ms</label><input id="ffetch-circuit-reset" type="number" min="1" value="${cfg.circuitResetMs}" /></div>
+
+    <div class="plugin-block">
+      <div class="field"><label><input id="ffetch-hedge" type="checkbox" ${cfg.useHedgePlugin ? "checked" : ""} /> hedge plugin</label></div>
+      ${cfg.useHedgePlugin
+        ? `<div class="grid-two">
+            <div class="field"><label>hedge delay ms</label><input id="ffetch-hedge-delay" type="number" min="1" value="${cfg.hedgeDelayMs}" /></div>
+            <div class="field"><label>max hedges (tries)</label><input id="ffetch-hedge-max" type="number" min="0" max="10" value="${cfg.hedgeMaxHedges}" /></div>
+          </div>`
+        : ""}
     </div>
   `
   )

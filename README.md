@@ -26,6 +26,7 @@ The app wraps requests with chaos rules (latency, random failures, rate limiting
 - **Responsive UI** with preset scenarios and real-time progress
 - **Chaos controls**: latency range, random failures, rate limiting, throttling
 - **Client configuration**: independent timeout, retry, and plugin settings per client
+  - **ffetch plugins**: dedupe (collapse in-flight requests), circuit (fail-fast protection), hedge (race backup requests for tail-latency reduction)
 - **Run comparison**: side-by-side reliability score, error distribution, and latency metrics
 - **Exportable results**: download full run snapshots as JSON (schema v2)
 
@@ -33,9 +34,11 @@ The app wraps requests with chaos rules (latency, random failures, rate limiting
 
 - **Reliability Score**: weighted metric accounting for success rate, timeouts, and tail latency
 - **Error Distribution**: breakdown by status code and error type
-- **Latency Percentiles**: p50 and p95 response times
+- **Latency Percentiles**: p50, p95, and p99 response times
+- **Latency Samples**: count of latency measurements used for percentile calculation
+- **Error Rate**: percentage of requests that failed (non-2xx, timeouts, thrown errors)
 - **Throughput**: requests per second
-- **Attempt Tracking**: total transport attempts (including retries)
+- **Attempt Tracking**: total transport attempts (including retries and hedge attempts)
 
 ## Notes
 

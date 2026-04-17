@@ -105,6 +105,9 @@ function summarize(results) {
   const totalElapsedMs = results.reduce((acc, row) => acc + row.elapsedMs, 0)
   const p50 = pctl(lats, 0.5)
   const p95 = pctl(lats, 0.95)
+  const p99 = pctl(lats, 0.99)
+  const latencyN = lats.length
+  const errorRate = total > 0 ? ((total - success) / total) * 100 : 0
   const errorCounts = {}
   for (const row of results) {
     const key = row.ok ? "ok" : row.errorName || `HTTP_${row.status || 0}`
@@ -127,6 +130,9 @@ function summarize(results) {
     throughputRps: Number((total / Math.max(totalElapsedMs / 1000, 0.001)).toFixed(2)),
     p50: Math.round(p50),
     p95: Math.round(p95),
+    p99: Math.round(p99),
+    latencyN,
+    errorRate: Number(errorRate.toFixed(2)),
     reliabilityScore: Number(reliabilityScore.toFixed(1)),
     errorCounts
   }

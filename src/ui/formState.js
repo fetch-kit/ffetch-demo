@@ -54,10 +54,13 @@ export function readInputs(app, state) {
   state.clients.ffetch.retryDelayMs = Number(app.querySelector("#ffetch-delay-ms").value)
   state.clients.ffetch.useDedupePlugin = app.querySelector("#ffetch-dedupe").checked
   state.clients.ffetch.useCircuitPlugin = app.querySelector("#ffetch-circuit").checked
-  state.clients.ffetch.dedupeTtlMs = Number(app.querySelector("#ffetch-dedupe-ttl").value)
-  state.clients.ffetch.dedupeSweepIntervalMs = Number(app.querySelector("#ffetch-dedupe-sweep").value)
-  state.clients.ffetch.circuitThreshold = Number(app.querySelector("#ffetch-circuit-threshold").value)
-  state.clients.ffetch.circuitResetMs = Number(app.querySelector("#ffetch-circuit-reset").value)
+  state.clients.ffetch.useHedgePlugin = app.querySelector("#ffetch-hedge").checked
+  state.clients.ffetch.dedupeTtlMs = Number(app.querySelector("#ffetch-dedupe-ttl")?.value ?? state.clients.ffetch.dedupeTtlMs)
+  state.clients.ffetch.dedupeSweepIntervalMs = Number(app.querySelector("#ffetch-dedupe-sweep")?.value ?? state.clients.ffetch.dedupeSweepIntervalMs)
+  state.clients.ffetch.circuitThreshold = Number(app.querySelector("#ffetch-circuit-threshold")?.value ?? state.clients.ffetch.circuitThreshold)
+  state.clients.ffetch.circuitResetMs = Number(app.querySelector("#ffetch-circuit-reset")?.value ?? state.clients.ffetch.circuitResetMs)
+  state.clients.ffetch.hedgeDelayMs = Number(app.querySelector("#ffetch-hedge-delay")?.value ?? state.clients.ffetch.hedgeDelayMs)
+  state.clients.ffetch.hedgeMaxHedges = Number(app.querySelector("#ffetch-hedge-max")?.value ?? state.clients.ffetch.hedgeMaxHedges)
 
   state.clients.axios.enabled = app.querySelector("#axios-enabled").checked
   state.clients.axios.timeoutMs = Number(app.querySelector("#axios-timeout").value)

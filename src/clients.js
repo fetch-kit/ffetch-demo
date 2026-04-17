@@ -3,6 +3,7 @@ import axios from "axios"
 import { createClient as createFFetchClient } from "@fetchkit/ffetch"
 import { dedupePlugin } from "@fetchkit/ffetch/plugins/dedupe"
 import { circuitPlugin } from "@fetchkit/ffetch/plugins/circuit"
+import { hedgePlugin } from "@fetchkit/ffetch/plugins/hedge"
 
 function withTraceHeader(init = {}, traceId, client = "unknown") {
   const headers = new Headers(init.headers || {})
@@ -253,6 +254,16 @@ export function createFFetchAdapter(state, transport) {
         threshold: cfg.circuitThreshold,
         reset: cfg.circuitResetMs,
         order: cfg.circuitOrder
+      })
+    )
+  }
+
+  if (cfg.useHedgePlugin) {
+    plugins.push(
+      hedgePlugin({
+        delay: cfg.hedgeDelayMs,
+        maxHedges: cfg.hedgeMaxHedges,
+        order: cfg.hedgeOrder
       })
     )
   }
