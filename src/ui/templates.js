@@ -74,6 +74,19 @@ export function renderHelpOverlayContent() {
             <a href="https://github.com/fetch-kit/ffetch" target="_blank" rel="noreferrer noopener">GitHub</a>
           </li>
         </ul>
+        <p>
+          Client cards are fully configurable and reorderable. Use the drag handle on each card header to change execution order.
+          Add/remove controls define which clients participate in a run.
+        </p>
+      </section>
+
+      <section>
+        <h3>Sharing and exports</h3>
+        <ul class="help-list">
+          <li><b>Copy Share URL</b>: Captures the current scenario, chaos rules, and client configurations into a shareable URL hash. Opening that link restores the same setup.</li>
+          <li><b>Download Card</b>: Exports a deterministic SVG card from the latest completed run. This export is data-frozen and does not rerun requests.</li>
+          <li><b>Legend behavior</b>: The exported card legend is intelligent and only includes outcome types that appear in that run.</li>
+        </ul>
       </section>
 
       <section>
@@ -338,6 +351,11 @@ function renderResults(lastRun) {
   const top = [...lastRun.clients].sort((a, b) => b.summary.reliabilityScore - a.summary.reliabilityScore)[0]
 
   return `
+    <section class="panel">
+      <div class="actions">
+        <button id="download-card-btn" class="secondary">Download Card</button>
+      </div>
+    </section>
     ${renderScoreChart(lastRun.clients)}
     ${renderErrorChart(lastRun.clients)}
     ${lastRun.clients
@@ -494,6 +512,7 @@ export function renderApp(state, lastRun) {
             <div class="actions">
               <button id="run-btn">Run Arena</button>
               <button id="export-btn" class="secondary" ${lastRun ? "" : "disabled"}>Export Snapshot</button>
+              <button id="copy-link-btn" class="secondary">Copy Share URL</button>
             </div>
             <p class="footer-note">${lastRun ? `Last run: ${lastRun.startedAt}` : "No run yet"}</p>
           </section>

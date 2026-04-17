@@ -5,8 +5,11 @@ import { readInputs } from "./ui/formState"
 import { createHelpOverlay } from "./ui/helpOverlay"
 import { createProgressOverlay } from "./ui/progressOverlay"
 import { newRule, renderApp } from "./ui/templates"
+import { encodeStateToUrl, applyStateFromUrl } from "./shareState"
+import { downloadCardSvg } from "./cardSvg"
 
 const state = createState()
+applyStateFromUrl(state)
 const app = document.querySelector("#app")
 const helpOverlay = createHelpOverlay(document)
 const progressOverlay = createProgressOverlay(document)
@@ -71,9 +74,15 @@ function exportSnapshot() {
   URL.revokeObjectURL(url)
 }
 
+function syncUrl() {
+  const url = encodeStateToUrl(state)
+  history.replaceState(null, "", url)
+}
+
 function paint() {
   app.innerHTML = renderApp(state, lastRun)
   wireEvents()
+  syncUrl()
 }
 
 function setRuleType(index, type) {
@@ -215,6 +224,22 @@ function wireEvents() {
     exportSnapshot()
   })
 
+  app.querySelector("#download-card-btn")?.addEventListener("click", () => {
+    downloadCardSvg(lastRun)
+  })
+
+  app.querySelector("#copy-link-btn")?.addEventListener("click", () => {
+    const url = encodeStateToUrl(state)
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = app.querySelector("#copy-link-btn")
+      if (btn) {
+        const original = btn.textContent
+        btn.textContent = "Share URL Copied"
+        setTimeout(() => { btn.textContent = original }, 1800)
+      }
+    })
+  })
+
   app.querySelector("#run-btn")?.addEventListener("click", async () => {
     const btn = app.querySelector("#run-btn")
     btn.disabled = true
@@ -275,6 +300,11 @@ function wireEvents() {
   })
 
   wireClientDragAndDrop()
+
+  app.addEventListener("input", () => {
+    readInputs(app, state)
+    syncUrl()
+  })
 }
 
 paint()
