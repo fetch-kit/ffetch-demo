@@ -1,3 +1,5 @@
+import { analyzeTakeaways } from "../takeaways"
+
 export const RULE_FIELDS = {
   latency: [{ key: "ms", label: "Delay (ms)", type: "number" }],
   latencyRange: [
@@ -160,6 +162,71 @@ export function renderHelpOverlayContent() {
           <li><span class="legend-swatch swatch-other"></span> <b>other</b> — any remaining outcome not in the above categories</li>
         </ul>
         <p>Segments with 0% share are invisible in the bar.</p>
+      </section>
+
+      <section>
+        <h3>Observations and recommendations</h3>
+        <p>
+          After each run, an automated diagnostic engine analyzes each client's behavior against the chaos conditions and surfaces two types of insights:
+        </p>
+        <ul class="help-list">
+          <li><b>Observations</b>: Problems detected in the client's configuration or behavior (e.g., "timeout is too tight", "no retry configured but 15% failed"). These are factual and always displayed.</li>
+          <li><b>Recommended tweaks</b>: Actionable suggestions to improve reliability (e.g., "increase timeout to 4500ms", "enable circuit breaker"). These are carefully guarded to avoid harmful suggestions.</li>
+        </ul>
+        <p>
+          Each observation comes with a confidence score (50%, 88%, 95%, etc.) reflecting how certain the diagnosis is based on the collected telemetry.
+        </p>
+      </section>
+
+      <section>
+        <h3>Guard rules and why recommendations get suppressed</h3>
+        <p>
+          The diagnostic engine includes <b>guard rules</b> that prevent harmful recommendations from being suggested. For example:
+        </p>
+        <ul class="help-list">
+          <li>
+            <b>timeout-tight-before-more-retries</b>: When a client has a very tight timeout (e.g., 3000ms but p95 is 4200ms), suggesting "add more retries" would be counterproductive because retries consume more time, making tail latency even worse. The rule blocks retry suggestions and instead recommends increasing timeout first.
+          </li>
+          <li>
+            <b>timeout-tight-no-circuit</b>: A circuit breaker won't solve a timeout misconfiguration. This rule prevents suggesting circuit breaker to a client that has a tight timeout.
+          </li>
+          <li>
+            <b>rate-limit-no-circuit</b>: Rate-limit errors (429) are a protocol-level config problem, not a load-shedding problem. Circuit breaker won't help. This rule blocks circuit suggestions for rate-limited clients.
+          </li>
+          <li>
+            <b>retry-amplification-no-hedge-enable</b>: If a client has retries enabled and high request amplification, suggesting hedging (which adds more concurrent requests) could make things worse. This rule prevents stacking amplification strategies.
+          </li>
+          <li>
+            <b>hedge-amplification-no-retry-growth</b>: When both retry and hedge are active with high amplification, suggesting more retries is blocked to avoid over-amplification.
+          </li>
+        </ul>
+        <p>
+          When a recommendation is suppressed, the UI shows <b>"Suppressed by guard rules"</b> with the reason. This helps you understand why a seemingly obvious fix is being held back.
+        </p>
+      </section>
+
+      <section>
+        <h3>Example scenarios</h3>
+        <p>
+          The diagnostics work well across diverse failure modes. Here are some canonical test scenarios:
+        </p>
+        <ul class="help-list">
+          <li>
+            <b>Timeout pressure</b>: High latency (400–2500ms) with occasional errors (8% 503s). Clients with tight timeouts will fail more. The engine suggests increasing timeout before adding retries, preventing retry amplification from making things worse.
+          </li>
+          <li>
+            <b>Rate-limit heavy</b>: Strict rate limit (30 req/sec) issued 429 responses. Clients without "Retry-After" awareness will hit the limiter harder. The engine detects this and suggests adding 429 to your retry strategy, not circuit breaking.
+          </li>
+          <li>
+            <b>Flaky server</b>: 25% random 500 errors plus periodic 503s. Circuit breaker + retry beats retry alone by shedding load. The engine recommends circuit breaking to prevent retry cycles from overwhelming a broken backend.
+          </li>
+          <li>
+            <b>Tail-latency spikes</b>: A bimodal distribution (80–300ms fast path + 1500–3000ms spike path with 5% failures). Hedging excels here by racing requests. The engine detects the tail spike and recommends hedging.
+          </li>
+          <li>
+            <b>Cascading degradation</b>: High concurrency (15) + mixed delays and rate limits. Bare clients degrade badly; retry alone can amplify the problem; retry+circuit sheds load; hedging masks latency. The engine navigates these tradeoffs correctly.
+          </li>
+        </ul>
       </section>
 
       <section>
@@ -342,7 +409,57 @@ function renderErrorChart(results) {
   </section>`
 }
 
-function renderResults(lastRun) {
+function renderTakeawaysPanel(lastRun, state) {
+  const analysis = analyzeTakeaways(lastRun, state)
+  const diagnoses = analysis.diagnoses || []
+  const recommendations = analysis.recommendations || []
+  const blocked = analysis.blocked || []
+
+  if (!diagnoses.length && !recommendations.length) {
+    return `<section class="panel"><h2>Key Takeaways</h2><p class="footer-note">No dominant takeaways detected for this run.</p></section>`
+  }
+
+  const diagnosisItems = diagnoses
+    .map((d) => {
+      const confidence = Math.round((d.confidence || 0) * 100)
+      return `<li><b>[${String(d.severity || "info").toUpperCase()}]</b> ${d.clientName}: ${d.summary} <span class="footer-note">(confidence ${confidence}%)</span></li>`
+    })
+    .join("")
+
+  const recommendationItems = recommendations
+    .map((r) => {
+      return `<li><b>[${String(r.severity || "info").toUpperCase()}]</b> ${r.clientName}: <b>${r.title}</b> — ${r.description}</li>`
+    })
+    .join("")
+
+  const blockedItems = blocked
+    .map((b) => `<li><b>${b.clientName}</b>: <code>${b.recommendationId}</code> suppressed by <code>${b.ruleId}</code> — ${b.reason}</li>`)
+    .join("")
+
+  const blockedSection = blocked.length
+    ? `<section>
+        <h3>Suppressed by guard rules (${blocked.length})</h3>
+        <ul class="help-list">${blockedItems}</ul>
+      </section>`
+    : ""
+
+  return `<section class="panel">
+    <h2>Key Takeaways</h2>
+    <div class="help-sections">
+      <section>
+        <h3>Observations (${diagnoses.length})</h3>
+        <ul class="help-list">${diagnosisItems}</ul>
+      </section>
+      <section>
+        <h3>Recommended next tweaks (${recommendations.length})</h3>
+        <ul class="help-list">${recommendationItems}</ul>
+      </section>
+      ${blockedSection}
+    </div>
+  </section>`
+}
+
+function renderResults(lastRun, state) {
   if (!lastRun || !lastRun.clients.length) {
     return `<p class="footer-note">No run yet. Configure chaos and click Run Arena.</p>`
   }
@@ -357,6 +474,7 @@ function renderResults(lastRun) {
     </section>
     ${renderScoreChart(lastRun.clients)}
     ${renderErrorChart(lastRun.clients)}
+    ${renderTakeawaysPanel(lastRun, state)}
     ${lastRun.clients
       .map((bucket) => {
         const crown = bucket.client === top.client ? '<span class="badge">current winner</span>' : ""
@@ -579,7 +697,7 @@ export function renderApp(state, lastRun) {
           </section>
         </div>
 
-        <div class="right-col">${renderResults(lastRun)}</div>
+        <div class="right-col">${renderResults(lastRun, state)}</div>
       </section>
     </main>
   `
